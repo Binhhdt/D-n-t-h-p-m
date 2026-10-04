@@ -1,0 +1,320 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Tao du an Android
+        run: |
+          P=android/app/src/main
+          mkdir -p $P/java/com/vocaltool/donothopam $P/assets $P/res/drawable
+          cp index.html $P/assets/index.html
+          # bo ma hoa MP3 (khong tai duoc thi app van chay, chi thieu xuat MP3)
+          curl -fsSL https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js -o $P/assets/lame.min.js || curl -fsSL https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.0/lame.min.js -o $P/assets/lame.min.js || echo "khong tai duoc lamejs"
+          # khoa ky co dinh de cai de len ban cu khong can go app
+          echo "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" | base64 -d > android/app.jks
+
+          cat > android/settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "DoNotHopAm"
+          include ":app"
+          EOF
+
+          cat > android/build.gradle <<'EOF'
+          plugins {
+              id "com.android.application" version "8.5.2" apply false
+          }
+          EOF
+
+          cat > android/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2g
+          android.useAndroidX=true
+          EOF
+
+          cat > android/app/build.gradle <<'EOF'
+          plugins {
+              id "com.android.application"
+          }
+          android {
+              namespace "com.vocaltool.donothopam"
+              compileSdk 34
+              defaultConfig {
+                  applicationId "com.vocaltool.donothopam"
+                  minSdk 26
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+              signingConfigs {
+                  fixed {
+                      storeFile file("../app.jks")
+                      storePassword "android"
+                      keyAlias "app"
+                      keyPassword "android"
+                  }
+              }
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                      signingConfig signingConfigs.fixed
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+              lint {
+                  checkReleaseBuilds false
+                  abortOnError false
+              }
+          }
+          EOF
+
+          cat > $P/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <application
+                  android:label="Dò nốt hợp âm"
+                  android:icon="@drawable/ic_app"
+                  android:theme="@android:style/Theme.Material.Light.NoActionBar"
+                  android:hardwareAccelerated="true"
+                  android:largeHeap="true">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|uiMode|density"
+                      android:windowSoftInputMode="adjustResize">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > $P/res/drawable/ic_app.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="108" android:viewportHeight="108">
+              <path android:fillColor="#1A1D3A" android:pathData="M0,0h108v108h-108z" />
+              <path android:fillColor="#FF5C9E" android:pathData="M46,30h8v40h-8z" />
+              <path android:fillColor="#FF5C9E" android:pathData="M42,58a12,12 0 1,0 0.1,0z" />
+              <path android:fillColor="#58C2C9" android:pathData="M54,30h20v10h-20z" />
+          </vector>
+          EOF
+
+          cat > $P/java/com/vocaltool/donothopam/MainActivity.java <<'EOF'
+          package com.vocaltool.donothopam;
+
+          import android.app.Activity;
+          import android.content.ClipData;
+          import android.content.ClipboardManager;
+          import android.content.ContentValues;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.net.Uri;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.os.Environment;
+          import android.provider.MediaStore;
+          import android.util.Base64;
+          import android.webkit.JavascriptInterface;
+          import android.webkit.ValueCallback;
+          import android.webkit.WebChromeClient;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          import java.io.File;
+          import java.io.FileInputStream;
+          import java.io.FileOutputStream;
+          import java.io.InputStream;
+          import java.io.OutputStream;
+
+          public class MainActivity extends Activity {
+              private WebView web;
+              private ValueCallback<Uri[]> fileCb;
+              private File tmp;
+              private FileOutputStream tmpOut;
+              private String tmpName = "file";
+
+              @Override
+              protected void onCreate(Bundle state) {
+                  super.onCreate(state);
+                  web = new WebView(this);
+                  setContentView(web);
+                  WebSettings s = web.getSettings();
+                  s.setJavaScriptEnabled(true);
+                  s.setDomStorageEnabled(true);
+                  s.setAllowFileAccess(true);
+                  s.setAllowFileAccessFromFileURLs(true);
+                  s.setAllowUniversalAccessFromFileURLs(true);
+                  s.setMediaPlaybackRequiresUserGesture(false);
+                  s.setTextZoom(100);
+                  web.addJavascriptInterface(new Bridge(), "Android");
+                  web.setWebViewClient(new WebViewClient());
+                  web.setWebChromeClient(new WebChromeClient() {
+                      @Override
+                      public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> cb, FileChooserParams params) {
+                          if (fileCb != null) {
+                              fileCb.onReceiveValue(null);
+                          }
+                          fileCb = cb;
+                          Intent pick = new Intent(Intent.ACTION_GET_CONTENT);
+                          pick.addCategory(Intent.CATEGORY_OPENABLE);
+                          pick.setType("audio/*");
+                          try {
+                              startActivityForResult(Intent.createChooser(pick, "Chọn file nhạc"), 1);
+                          } catch (Exception e) {
+                              fileCb = null;
+                              return false;
+                          }
+                          return true;
+                      }
+                  });
+                  web.loadUrl("file:///android_asset/index.html");
+              }
+
+              @Override
+              protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+                  super.onActivityResult(requestCode, resultCode, data);
+                  if (requestCode == 1 && fileCb != null) {
+                      fileCb.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
+                      fileCb = null;
+                  }
+              }
+
+              @Override
+              public void onBackPressed() {
+                  web.evaluateJavascript("(window.appBack&&window.appBack())?'1':'0'", new ValueCallback<String>() {
+                      @Override
+                      public void onReceiveValue(String value) {
+                          if (value == null || !value.contains("1")) {
+                              finish();
+                          }
+                      }
+                  });
+              }
+
+              public class Bridge {
+                  @JavascriptInterface
+                  public void saveBegin(String name) {
+                      try {
+                          if (tmpOut != null) {
+                              tmpOut.close();
+                          }
+                          tmpName = name.replaceAll("[^A-Za-z0-9._-]", "_");
+                          tmp = new File(getCacheDir(), "export.tmp");
+                          tmpOut = new FileOutputStream(tmp);
+                      } catch (Exception e) {
+                          tmpOut = null;
+                      }
+                  }
+
+                  @JavascriptInterface
+                  public void saveChunk(String b64) {
+                      try {
+                          if (tmpOut != null) {
+                              tmpOut.write(Base64.decode(b64, Base64.DEFAULT));
+                          }
+                      } catch (Exception e) {
+                          tmpOut = null;
+                      }
+                  }
+
+                  @JavascriptInterface
+                  public String saveEnd(String mime) {
+                      try {
+                          if (tmpOut == null) {
+                              return "ERR:khong ghi duoc file tam";
+                          }
+                          tmpOut.close();
+                          tmpOut = null;
+                          OutputStream os;
+                          String where;
+                          if (Build.VERSION.SDK_INT >= 29) {
+                              ContentValues v = new ContentValues();
+                              v.put(MediaStore.MediaColumns.DISPLAY_NAME, tmpName);
+                              v.put(MediaStore.MediaColumns.MIME_TYPE, mime);
+                              v.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/DoNotHopAm");
+                              Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+                              if (uri == null) {
+                                  return "ERR:khong tao duoc file trong Download";
+                              }
+                              os = getContentResolver().openOutputStream(uri);
+                              where = "Download/DoNotHopAm/" + tmpName;
+                          } else {
+                              File out = new File(getExternalFilesDir(null), tmpName);
+                              os = new FileOutputStream(out);
+                              where = out.getAbsolutePath();
+                          }
+                          if (os == null) {
+                              return "ERR:khong mo duoc file dich";
+                          }
+                          InputStream in = new FileInputStream(tmp);
+                          byte[] buf = new byte[65536];
+                          int n;
+                          while ((n = in.read(buf)) > 0) {
+                              os.write(buf, 0, n);
+                          }
+                          in.close();
+                          os.close();
+                          tmp.delete();
+                          return "OK:" + where;
+                      } catch (Exception e) {
+                          return "ERR:" + e.getMessage();
+                      }
+                  }
+
+                  @JavascriptInterface
+                  public void copy(final String text) {
+                      runOnUiThread(new Runnable() {
+                          @Override
+                          public void run() {
+                              ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                              if (cm != null) {
+                                  cm.setPrimaryClip(ClipData.newPlainText("loi", text));
+                              }
+                          }
+                      });
+                  }
+              }
+          }
+          EOF
+
+      - name: Build APK
+        run: |
+          if [ -n "$JAVA_HOME_17_X64" ]; then export JAVA_HOME="$JAVA_HOME_17_X64"; fi
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" > /dev/null || true
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.7-bin.zip -o gradle.zip
+          unzip -q gradle.zip
+          cd android
+          ../gradle-8.7/bin/gradle :app:assembleRelease --no-daemon --stacktrace
+          cp app/build/outputs/apk/release/app-release.apk ../do-not-hop-am.apk
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: do-not-hop-am-apk
+          path: do-not-hop-am.apk
