@@ -203,6 +203,8 @@ div.peak{cursor:default}
     <div id="whBox" hidden>
       <p class="lead">App tự nghe lời từ file nhạc, tự tìm lúc từng câu bắt đầu hát và điền hợp âm vào đúng chữ. Cần có mạng.</p>
       <div class="actions"><button class="btn primary" id="lyWh">Tự động lấy lời từ bài hát</button></div>
+      <p id="whStat" role="status" style="margin-top:10px;font-weight:500"></p>
+      <progress id="whProg" max="1" value="0" hidden></progress>
       <details id="whSet" style="margin-top:12px">
         <summary style="min-height:40px;font-weight:500;cursor:pointer">Cài đặt nhận dạng lời</summary>
         <p class="hint">App dùng dịch vụ nhận dạng giọng nói Whisper của Groq (có gói miễn phí). Mở console.groq.com, đăng nhập, vào API Keys, tạo một khóa rồi dán vào đây. Khi lấy lời, file nhạc được gửi lên Groq để nhận dạng.</p>
@@ -1362,7 +1364,7 @@ async function cAnalyze(x,buf,label,file){
   cBusy(false);
   if(!r){cStatus('Không dò được bài này. Bài cần dài ít nhất khoảng 10 giây và có nhạc đệm rõ.',true);return;}
   CS.res=r;CS.buf=buf;CS.shift=0;CS.style=null;cPaused=0;
-  LY.lines=[];LY.on=false;$('lyBox').hidden=true;
+  LY.lines=[];LY.on=false;$('lyBox').hidden=true;whStat('');lyStat('');
   const sel=$('cStyleSel');sel.textContent='';
   for(const nm of [...new Set(r.styles.map(s=>s.name).concat(ALL_STYLES))]){const o=document.createElement('option');o.value=o.textContent=nm;sel.append(o);}
   /* gom các phách thành ô nhịp, bắt đầu từ phách mạnh đầu tiên; phần lấy đà (nếu có) là một ô riêng */
@@ -1708,33 +1710,49 @@ function lySetLines(lines){
   lines.forEach((L,i)=>lyAuto(i));
   lyRender();
 }
-$('whSave').onclick=()=>{store.set('groqKey',$('whKey').value.trim());store.set('whLang',$('whLang').value);lyStat('Đã lưu cài đặt.');$('whSet').open=false;};
+function whStat(msg,err){const el=$('whStat');el.textContent=msg;el.style.color=err?'var(--high)':'var(--ink)';}
+$('whSave').onclick=()=>{store.set('groqKey',$('whKey').value.trim());store.set('whLang',$('whLang').value);whStat('Đã lưu cài đặt.');$('whSet').open=false;};
 $('lyWh').onclick=async()=>{
   if(!CS.res)return;
   const key=store.get('groqKey');
-  if(!key){$('whSet').open=true;lyStat('Chưa có khóa Groq. Hãy dán khóa vào ô "Cài đặt nhận dạng lời" rồi bấm Lưu cài đặt.',true);return;}
+  if(!key){$('whSet').open=true;whStat('Chưa có khóa Groq. Hãy dán khóa vào ô "Cài đặt nhận dạng lời" rồi bấm Lưu cài đặt.',true);return;}
   /* gửi file gốc nếu đủ nhỏ, không thì gửi bản mono 22 kHz; giới hạn của gói miễn phí là 25 MB */
   let blob=null,name='song.wav';
   if(CS.file&&CS.file.size<=24e6){blob=CS.file;name=CS.file.name||'song.mp3';}
   else if(CS.mono&&CS.mono.length*2+44<=24e6)blob=new Blob([wavBytes(CS.mono,SR)],{type:'audio/wav'});
-  if(!blob){lyStat('Bài này quá dài để gửi đi nhận dạng (giới hạn 25 MB). Hãy dùng file mp3 thay vì wav.',true);return;}
+  if(!blob){whStat('Bài này quá dài để gửi đi nhận dạng (giới hạn 25 MB). Hãy dùng file mp3 thay vì wav.',true);return;}
   const fd=new FormData();
   fd.append('file',blob,name);fd.append('model','whisper-large-v3');fd.append('response_format','verbose_json');
   fd.append('timestamp_granularities[]','word');fd.append('timestamp_granularities[]','segment');fd.append('temperature','0');
   const lang=store.get('whLang')||($('whLang').value);if(lang)fd.append('language',lang);
-  $('lyWh').disabled=true;lyStat('Đang gửi bài hát đi nhận dạng lời. Thường mất từ 10 giây đến 1 phút, tùy mạng…');
+  /* tiến độ: phần gửi file đo được theo phần trăm; phần máy chủ nhận dạng không báo tiến độ nên hiện số giây đã chờ */
+  const prog=$('whProg'),t0=Date.now();let sent=false;
+  for(const id of ['lyWh','lyStart','cPick','cDemo'])$(id).disabled=true;
+  prog.hidden=false;prog.value=0;whStat('Đang gửi bài hát: 0%');
+  const timer=setInterval(()=>{if(sent)whStat('Đã gửi xong. Đang nhận dạng lời, đã chờ '+Math.round((Date.now()-t0)/1000)+' giây…');},1000);
   let j=null,err='';
   try{
-    const res=await fetch('https://api.groq.com/openai/v1/audio/transcriptions',{method:'POST',headers:{Authorization:'Bearer '+key},body:fd});
-    if(res.ok)j=await res.json();
+    const res=await new Promise((ok,no)=>{
+      const x=new XMLHttpRequest();
+      x.open('POST','https://api.groq.com/openai/v1/audio/transcriptions');
+      x.setRequestHeader('Authorization','Bearer '+key);
+      x.timeout=300000;
+      x.upload.onprogress=e=>{if(e.lengthComputable&&!sent){const p=e.loaded/e.total;prog.value=p;whStat('Đang gửi bài hát: '+Math.round(p*100)+'%');}};
+      x.upload.onload=()=>{sent=true;prog.removeAttribute('value');};
+      x.onload=()=>ok({status:x.status,text:x.responseText});
+      x.onerror=()=>no('net');x.ontimeout=()=>no('timeout');
+      x.send(fd);
+    });
+    if(res.status>=200&&res.status<300){try{j=JSON.parse(res.text);}catch(e){err='Dịch vụ nhận dạng trả về dữ liệu không đọc được. Hãy thử lại.';}}
     else err=res.status===401?'Khóa Groq không đúng hoặc đã bị xóa. Hãy kiểm tra lại trong "Cài đặt nhận dạng lời".':res.status===413?'File quá lớn so với giới hạn của Groq. Hãy dùng file mp3 nhỏ hơn 25 MB.':res.status===429?'Đã hết lượt dùng miễn phí trong lúc này. Hãy đợi vài phút rồi thử lại.':'Dịch vụ nhận dạng báo lỗi '+res.status+'. Hãy thử lại sau.';
-  }catch(e){err='Không kết nối được tới dịch vụ nhận dạng. Hãy kiểm tra mạng rồi thử lại.';}
-  $('lyWh').disabled=false;
-  if(err){lyStat(err,true);return;}
+  }catch(e){err=e==='timeout'?'Chờ quá 5 phút mà chưa có kết quả. Mạng có thể quá chậm, hãy thử lại.':'Không kết nối được tới dịch vụ nhận dạng. Hãy kiểm tra mạng rồi thử lại.';}
+  clearInterval(timer);prog.hidden=true;
+  for(const id of ['lyWh','lyStart','cPick','cDemo'])$(id).disabled=false;
+  if(err){whStat(err,true);return;}
   const lines=lyFromWhisper(j);
-  if(!lines.length){lyStat('Không nghe ra lời nào trong bài này. Bài có thể là nhạc không lời, hoặc tiếng hát quá nhỏ so với nhạc.',true);return;}
-  lySetLines(lines);
-  lyStat('Đã lấy được '+lines.filter(L=>!L.blank).length+' câu lời và điền hợp âm. Máy nghe lời bài hát có nhạc thường sai một số chữ: sửa lời trong ô phía trên rồi bấm "Cập nhật lời đã sửa" (giữ nguyên số dòng).');
+  if(!lines.length){whStat('Không nghe ra lời nào trong bài này. Bài có thể là nhạc không lời, hoặc tiếng hát quá nhỏ so với nhạc.',true);return;}
+  lySetLines(lines);lyStat('');
+  whStat('Đã lấy được '+lines.filter(L=>!L.blank).length+' câu lời và điền hợp âm. Máy nghe lời bài hát có nhạc thường sai một số chữ: sửa lời trong ô lời bên dưới rồi bấm "Cập nhật lời đã sửa" (giữ nguyên số dòng).');
 };
 /* Sửa chữ trong ô lời mà vẫn giữ mốc thời gian của từng câu */
 $('lyUpd').onclick=()=>{
