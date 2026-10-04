@@ -105,6 +105,8 @@ div.peak{cursor:default}
 .bar{min-height:58px;padding:6px 8px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:6px;display:flex;flex-direction:column;justify-content:space-between}
 .bar .ch{font-weight:700;font-size:1.05rem;display:flex;flex-wrap:wrap;column-gap:8px}
 .bar .tm{font-size:.7rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.bar.same .ch{color:var(--muted);font-weight:500}
+.bar.on .ch{color:inherit}
 .bar.on{background:var(--note);border-color:var(--note);color:var(--surface)}
 .bar.on .tm{color:var(--surface)}
 .styleRow select,#lyIn{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px}
@@ -1540,10 +1542,16 @@ function cRender(){
     const s=document.createElement('small');s.textContent=k+' ô';el.append(s);chips.append(el);
   }
   const chart=$('cChart');chart.textContent='';CS.cells=[];CS.cur=-1;
+  let prevLast=-1;
   CS.bars.forEach((b,i)=>{
-    const el=document.createElement('button');el.className='bar';
+    /* chỉ ghi hợp âm khi nó đổi: hợp âm kéo từ ô trước sang không ghi lại trong ô có hợp âm mới;
+       ô vẫn giữ nguyên hợp âm cũ thì ghi mờ để dễ đếm ô */
+    let show=b.chords,same=false;
+    if(show[0]===prevLast){if(show.length>1)show=show.slice(1);else same=true;}
+    prevLast=b.chords[b.chords.length-1];
+    const el=document.createElement('button');el.className='bar'+(same?' same':'');
     const c=document.createElement('span');c.className='ch';
-    for(const id of b.chords){const s=document.createElement('span');s.textContent=chordName(id,sh,flat);c.append(s);}
+    for(const id of show){const s=document.createElement('span');s.textContent=chordName(id,sh,flat);c.append(s);}
     const tm=document.createElement('span');tm.className='tm';tm.textContent=fmtT(b.t);
     el.append(c,tm);el.onclick=()=>cPlayAt(b.t);
     chart.append(el);CS.cells.push(el);
