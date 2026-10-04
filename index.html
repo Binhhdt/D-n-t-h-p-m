@@ -8,18 +8,14 @@
 :root{
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:dark;
+  --paper:#0F1226;--surface:#1A1E3D;--ink:#EEF0FA;--muted:#A9AED0;--line:#2A2F5A;
+  --note:#58C2C9;--high:#FF5C9E;--low:#E0A340;--blackkey:#12152C;--trace:#4A4F7A;--edit:#B29CFF;
+}
+:root[data-theme="light"]{
+  color-scheme:light;
   --paper:#EEF0F7;--surface:#FFFFFF;--ink:#1A1D3A;--muted:#5C6185;--line:#D3D7E6;
   --note:#2A7F86;--high:#D1206B;--low:#B8730C;--blackkey:#E4E7F1;--trace:#A9AEC9;--edit:#6A45D6;
-}
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    --paper:#121428;--surface:#1B1E3A;--ink:#ECEEFA;--muted:#9BA0C4;--line:#2E3257;
-    --note:#58C2C9;--high:#FF5C9E;--low:#F0B04A;--blackkey:#15182F;--trace:#4A4F7A;--edit:#B29CFF;
-  }
-}
-:root[data-theme="dark"]{
-  --paper:#121428;--surface:#1B1E3A;--ink:#ECEEFA;--muted:#9BA0C4;--line:#2E3257;
-  --note:#58C2C9;--high:#FF5C9E;--low:#F0B04A;--blackkey:#15182F;--trace:#4A4F7A;--edit:#B29CFF;
 }
 *,*::before,*::after{box-sizing:inherit}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
@@ -65,10 +61,28 @@ progress{display:block;width:100%;height:6px;margin-top:8px;accent-color:var(--n
 .player{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px}
 .player .btn{min-height:44px;padding:0 16px}
 #clock{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.9rem}
-.tile{display:block;width:100%;text-align:left;margin-top:14px;padding:18px 18px 20px;background:var(--surface);border:2px solid var(--ink);border-radius:10px}
-.tile b{display:block;font-size:1.3rem;font-weight:800;letter-spacing:-.01em}
-.tile span{display:block;margin-top:6px;color:var(--muted);font-size:.95rem;max-width:32em}
-.tile.v{border-left:10px solid var(--high)} .tile.c{border-left:10px solid var(--note)}
+.hTop{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700}
+.logo{width:38px;height:38px;border-radius:10px;background:var(--high);color:var(--paper);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.05rem;letter-spacing:-.02em}
+.gear{width:44px;height:44px;border-radius:22px;border:1px solid var(--line);background:var(--surface);display:flex;align-items:center;justify-content:center}
+.gear[hidden],#hSet[hidden]{display:none}
+#hSet{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:18px}
+#hSet input,#hSet select{font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:8px;min-height:44px;padding:0 12px}
+#hSet input{display:block;width:100%;margin-top:8px}
+#home h1{font-size:1.9rem;margin-bottom:18px}
+.hCard{display:flex;flex-direction:column;gap:12px;width:100%;text-align:left;padding:16px;margin-bottom:16px;border-radius:20px;border:1px solid var(--line);background:var(--surface)}
+.hCard strong{font-size:1.25rem;font-weight:700}
+.hCard .d{font-size:.9rem;line-height:1.45;color:var(--muted);margin-top:-8px}
+.hCard .go{display:flex;align-items:center;justify-content:space-between;color:var(--muted)}
+.pill{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border-radius:22px;color:var(--paper);font-weight:700;font-size:.95rem}
+.pill.p{background:var(--high)} .pill.t{background:var(--note)}
+.art{display:block;height:84px;border-radius:12px;background:var(--blackkey);position:relative;overflow:hidden}
+.art i{position:absolute;height:12px;border-radius:4px;background:var(--note)}
+.art b{position:absolute;font-size:.7rem;font-weight:700;color:var(--high);line-height:12px}
+.art.cells{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px}
+.art.cells span{border:1px solid var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.1rem}
+.art.cells span.on{background:var(--note);border-color:var(--note);color:var(--paper)}
+.hFoot{font-size:.8rem;color:var(--muted)}
 .back{min-height:40px;margin:-8px 0 10px;font-weight:500;color:var(--muted)}
 #cStatus{margin-top:16px;color:var(--muted);min-height:1.5em}
 #cStatus.err{color:var(--high);font-weight:500}
@@ -151,10 +165,43 @@ div.peak{cursor:default}
 <body>
 <main>
  <section id="home">
-  <h1>Dò nốt và hợp âm</h1>
-  <p class="lead">Bạn muốn dò gì?</p>
-  <button class="tile v" id="goVocal"><b>Dò nốt giọng hát</b><span>Cho file chỉ có giọng hát. Tìm nốt cao nhất, thấp nhất, tone của giọng, và sửa nốt chênh phô.</span></button>
-  <button class="tile c" id="goChords"><b>Dò hợp âm bài hát</b><span>Cho bài hát có nhạc đệm. Tìm tone, tempo, điệu và tất cả hợp âm trong bài, có đổi tone.</span></button>
+  <div class="hTop">
+    <div class="brand"><span class="logo">14</span><span>Dò nốt và hợp âm</span></div>
+    <button class="gear" id="hGear" aria-label="Cài đặt" aria-expanded="false" hidden>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="9" cy="6" r="2" fill="var(--surface)"/><circle cx="15" cy="12" r="2" fill="var(--surface)"/><circle cx="8" cy="18" r="2" fill="var(--surface)"/></svg>
+    </button>
+  </div>
+  <div id="hSet" hidden>
+    <b>Cài đặt nhận dạng lời</b>
+    <p class="hint">Dùng cho nút "Tự động lấy lời từ bài hát". Mở console.groq.com, đăng nhập, vào API Keys, tạo một khóa rồi dán vào đây.</p>
+    <input id="hKey" type="password" autocomplete="off" placeholder="Dán khóa Groq (bắt đầu bằng gsk_)" aria-label="Khóa Groq">
+    <label style="display:block;margin-top:10px;font-size:.9rem;color:var(--muted)">Ngôn ngữ của lời
+      <select id="hLang" style="margin-left:8px"><option value="vi">Tiếng Việt</option><option value="en">Tiếng Anh</option><option value="">Tự nhận</option></select>
+    </label>
+    <div class="actions"><button class="btn primary" id="hSave">Lưu cài đặt</button></div>
+    <p class="hint" id="hMsg" role="status"></p>
+  </div>
+  <h1>Hôm nay bạn muốn dò gì?</h1>
+  <button class="hCard" id="goVocal">
+    <span class="art" aria-hidden="true">
+      <i style="left:52%;top:10px;width:22%;background:var(--high)"></i><b style="left:76%;top:10px">A5</b>
+      <i style="left:30%;top:28px;width:18%"></i>
+      <i style="left:11%;top:46px;width:17%"></i><i style="left:74%;top:46px;width:19%"></i>
+      <i style="left:3%;top:64px;width:15%;background:var(--low)"></i>
+    </span>
+    <strong>Dò nốt giọng hát</strong>
+    <span class="d">Nốt cao nhất, thấp nhất và tone của giọng. Kéo sửa nốt chênh phô, xuất WAV hoặc MP3.</span>
+    <span class="go"><span class="pill p">Chọn file vocal</span>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg></span>
+  </button>
+  <button class="hCard" id="goChords">
+    <span class="art cells" aria-hidden="true"><span class="on">Am</span><span>Dm</span><span>E7</span><span>Am</span></span>
+    <strong>Dò hợp âm bài hát</strong>
+    <span class="d">Tone, tempo, điệu và hợp âm từng ô nhịp. Đổi tone, tự lấy lời và ghép hợp âm vào lời.</span>
+    <span class="go"><span class="pill t">Chọn file bài hát</span>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg></span>
+  </button>
+  <p class="hFoot">Dò nốt, sửa nốt và dò hợp âm chạy ngay trên máy. Chỉ phần tự lấy lời cần có mạng.</p>
  </section>
 
  <section id="chords" hidden>
@@ -758,10 +805,12 @@ async function analyzeSong(x,onProg){
 
   /* ---- 5. Chroma theo từng phách và chấm điểm 24 hợp âm ---- */
   /* Mẫu hợp âm có tính cả bồi âm: mỗi nốt còn vang ở quãng 5 và quãng 3 trưởng phía trên nó */
-  const TPL=[];
-  for(let s=0;s<24;s++){
-    const r=s%12,t=new Float32Array(12);
-    for(const p of [r,r+(s<12?4:3),r+7]){t[p%12]+=1.82;t[(p+7)%12]+=0.44;t[(p+4)%12]+=0.13;}
+  /* trạng thái: 0-11 trưởng, 12-23 thứ, 24 không có hợp âm, 25-36 sus4, 37-48 sus2 */
+  const NS=49,rootOf=s=>s<24?s%12:s<37?s-25:s-37,TPL=[];
+  for(let s=0;s<NS;s++){
+    const r=rootOf(s),t=new Float32Array(12);
+    if(s===24){TPL.push(t);continue;}
+    for(const p of [r,r+(s<12?4:s<24?3:s<37?5:2),r+7]){t[p%12]+=1.82;t[(p+7)%12]+=0.44;t[(p+4)%12]+=0.13;}
     let nn=0;for(let i=0;i<12;i++)nn+=t[i]*t[i];nn=Math.sqrt(nn);for(let i=0;i<12;i++)t[i]/=nn;
     TPL.push(t);
   }
@@ -775,8 +824,8 @@ async function analyzeSong(x,onProg){
     en[b]=s/(f1-f0);nc=Math.sqrt(nc)||1;nb=Math.sqrt(nb)||1;
     for(let p=0;p<12;p++){c[p]/=nc;tot[p]+=c[p];}
     cn.push(c);
-    const row2=new Float32Array(25);
-    for(let s2=0;s2<24;s2++){const t=TPL[s2];let d=0;for(let p=0;p<12;p++)d+=c[p]*t[p];row2[s2]=d+0.25*ba[s2%12]/nb;}
+    const row2=new Float32Array(NS);
+    for(let s2=0;s2<NS;s2++){if(s2===24)continue;const t=TPL[s2];let d=0;for(let p=0;p<12;p++)d+=c[p]*t[p];row2[s2]=d+0.25*ba[rootOf(s2)]/nb;}
     sc.push(row2);
   }
   const enMed=median(en);
@@ -784,20 +833,21 @@ async function analyzeSong(x,onProg){
   /* Viterbi: phạt mỗi lần đổi hợp âm để kết quả không nhảy lung tung.
      pen(b) = mức phạt khi đổi hợp âm ở phách b; bonus[s] = điểm cộng cho hợp âm s */
   const viterbi=(pen,bonus)=>{
-    const V=new Float32Array(25),bp=[];
-    for(let s=0;s<25;s++)V[s]=sc[0][s]+bonus[s];
+    const V=new Float32Array(NS),bp=[];
+    for(let s=0;s<NS;s++)V[s]=sc[0][s]+bonus[s];
     for(let b=1;b<nB;b++){
-      const PEN=pen(b);let ms=0;for(let s=1;s<25;s++)if(V[s]>V[ms])ms=s;
-      const nv=new Float32Array(25),pb=new Int8Array(25);
-      for(let s=0;s<25;s++){const e=sc[b][s]+bonus[s];if(V[s]>=V[ms]-PEN){nv[s]=V[s]+e;pb[s]=s;}else{nv[s]=V[ms]-PEN+e;pb[s]=ms;}}
+      const PEN=pen(b);let ms=0;for(let s=1;s<NS;s++)if(V[s]>V[ms])ms=s;
+      const nv=new Float32Array(NS),pb=new Int8Array(NS);
+      for(let s=0;s<NS;s++){const e=sc[b][s]+bonus[s];if(V[s]>=V[ms]-PEN){nv[s]=V[s]+e;pb[s]=s;}else{nv[s]=V[ms]-PEN+e;pb[s]=ms;}}
       V.set(nv);bp.push(pb);
     }
-    const out=new Int8Array(nB);let s=0;for(let k=1;k<25;k++)if(V[k]>V[s])s=k;
+    const out=new Int8Array(nB);let s=0;for(let k=1;k<NS;k++)if(V[k]>V[s])s=k;
     for(let b=nB-1;b>=0;b--){out[b]=s;if(b>0)s=bp[b-1][s];}
     return out;
   };
-  const zero=new Float32Array(25);
-  let chord=viterbi(()=>0.18,zero);
+  /* hợp âm sus phải rõ hơn hẳn mới được chọn, vì nốt luyến của giai điệu dễ làm nhầm thành sus */
+  const base=new Float32Array(NS);for(let s=25;s<NS;s++)base[s]=-0.06;
+  let chord=viterbi(()=>0.18,base);
 
   /* ---- 6. Loại nhịp (3 hay 4 phách) và phách mạnh, dựa vào chỗ đổi hợp âm và nhấn trầm ---- */
   const acc=new Float32Array(nB);
@@ -833,9 +883,22 @@ async function analyzeSong(x,onProg){
   let key=findKey();
   /* Lượt hai: ưu tiên nhẹ các hợp âm thuộc tone, và ưu tiên đổi hợp âm ở đầu ô nhịp */
   {
-    const bonus=new Float32Array(25);for(const c of diaOf(key.tonic,key.minor))bonus[c]=0.04;
+    const bonus=Float32Array.from(base);for(const c of diaOf(key.tonic,key.minor))bonus[c]=0.04;
     chord=viterbi(b=>{const pos=((b-down)%meter+meter)%meter;return pos===0?0.12:(meter===4&&pos===2)?0.18:0.27;},bonus);
     key=findKey();
+  }
+  /* Lọc sus nhận nhầm: giữ đoạn sus nếu nó dài từ một ô nhịp trở lên, hoặc đứng cạnh hợp âm cùng nốt gốc
+     (kiểu Esus4 về E). Không thì đổi về hợp âm trưởng/thứ hợp nhất với đoạn đó. */
+  {
+    const segs=[],dia=new Set(diaOf(key.tonic,key.minor));for(let a=0;a<nB;){let e=a;while(e<nB&&chord[e]===chord[a])e++;segs.push([a,e]);a=e;}
+    segs.forEach(([a,e],i)=>{
+      const s=chord[a];if(s<25)return;
+      const r=rootOf(s),nb=[segs[i-1],segs[i+1]].some(g=>g&&chord[g[0]]<24&&chord[g[0]]%12===r);
+      if(nb||e-a>=meter)return;
+      let best=0,bv=-1e9;
+      for(let t=0;t<24;t++){let v=dia.has(t)?0.04*(e-a):0;for(let b=a;b<e;b++)v+=sc[b][t];if(v>bv){bv=v;best=t;}}
+      for(let b=a;b<e;b++)chord[b]=best;
+    });
   }
   /* Hợp âm 7: trong mỗi đoạn hợp âm trưởng, nếu nốt quãng 7 thứ vang rõ thì ghi thành hợp âm 7.
      Ngưỡng thấp hơn khi hợp âm kế tiếp nằm trên nó một quãng 4 (kiểu E7 về Am, A7 về Dm). Mã hợp âm 7 = mã gốc + 100. */
@@ -846,7 +909,7 @@ async function analyzeSong(x,onProg){
       const m=new Float32Array(12);for(let b=a;b<e;b++)for(let p=0;p<12;p++)m[p]+=cn[b][p];
       const tri=(m[c]+m[(c+4)%12]+m[(c+7)%12])/3,b7=m[(c+10)%12],M7=m[(c+11)%12];
       let nx=e;while(nx<nB&&chord[nx]===24)nx++;
-      const res=nx<nB&&chord[nx]%12===(c+5)%12;
+      const res=nx<nB&&rootOf(chord[nx])===(c+5)%12;
       if(b7>=(res?0.42:0.62)*tri&&b7>1.15*M7)for(let b=a;b<e;b++)chord[b]=c+100;
     }
     a=e;
@@ -875,12 +938,16 @@ async function analyzeSong(x,onProg){
     styles.sort((a,b)=>b.score-a.score);
   }
   await tick(1);
+  /* mã trả về: gốc 0-23, 24 = không có, +100 = hợp âm 7, 200+nốt = sus4, 300+nốt = sus2 */
+  const outC=new Int16Array(nB);
+  for(let b=0;b<nB;b++){const s=chord[b];outC[b]=s>=100||s<=24?s:s<37?200+s-25:300+s-37;}
+  chord=outC;
   return {bpm,beats,chord,meter,down,key,styles:styles.slice(0,3),tune:tune*33,triplet};
 }
 
 /* tên hợp âm / tone, có dịch tone; dùng dấu giáng với các tone quen viết giáng */
 function keyUsesFlat(tonic,minor){return (minor?MIN_FLAT:MAJ_FLAT).includes(tonic);}
-function chordName(c,shift,flat){if(c===24)return '–';const b=c%100,r=((b%12)+shift+120)%12;return (flat?FLAT:NAMES)[r]+(b>=12?'m':'')+(c>=100?'7':'');}
+function chordName(c,shift,flat){if(c===24)return '–';const b=c%100,r=((b%12)+shift+120)%12;return (flat?FLAT:NAMES)[r]+(b>=12?'m':'')+['','7','sus4','sus2'][Math.floor(c/100)];}
 
 /* Bài mẫu tổng hợp để thử: bass + tiếng gõ theo mẫu của điệu, hợp âm ngân */
 function makeSong(style,bpm,prog,bars){
@@ -888,9 +955,9 @@ function makeSong(style,bpm,prog,bars){
   const pt=pats[style],bpb=style==='valse'?3:4,spb=60/bpm,sr=SR,N=Math.ceil((bars*bpb*spb+1.5)*sr),x=new Float32Array(N);
   let seed=7;const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x3fffffff-1;};
   for(let bar=0;bar<bars;bar++){
-    const c0=prog[bar%prog.length],c=c0%100,root=c%12,third=root+(c>=12?3:4),t0=0.5+bar*bpb*spb,L=bpb*spb;
+    const c0=prog[bar%prog.length],c=c0%100,root=c%12,third=root+(c0>=300?2:c0>=200?5:c>=12?3:4),t0=0.5+bar*bpb*spb,L=bpb*spb;
     const s0=Math.floor(t0*sr),n=Math.floor(L*sr);
-    for(const [semi,amp] of [[root,1],[third,0.9],[root+7,0.9],[root+12,0.6],[third+12,0.5]].concat(c0>=100?[[root+10,0.8]]:[])){
+    for(const [semi,amp] of [[root,1],[third,0.9],[root+7,0.9],[root+12,0.6],[third+12,0.5]].concat(c0>=100&&c0<200?[[root+10,0.8]]:[])){
       const f=midiToHz(48+semi);
       for(let i=0;i<n;i++){const t=i/sr,env=Math.min(1,i/400,(n-i)/400)*(0.6+0.4*Math.exp(-t*2));
         x[s0+i]+=0.045*amp*env*(Math.sin(2*Math.PI*f*t)+0.5*Math.sin(4*Math.PI*f*t)+0.25*Math.sin(6*Math.PI*f*t));}
@@ -1395,8 +1462,9 @@ function show(id){
   window.scrollTo(0,0);
   if(id==='vocal')layoutRoll();
 }
-$('goVocal').onclick=()=>show('vocal');
-$('goChords').onclick=()=>show('chords');
+/* thẻ ở trang đầu: vào màn hình tương ứng và mở luôn hộp chọn file */
+$('goVocal').onclick=()=>{show('vocal');$('file').click();};
+$('goChords').onclick=()=>{show('chords');$('cFile').click();};
 for(const b of document.querySelectorAll('[data-back]'))b.onclick=()=>show('home');
 
 const CS={res:null,buf:null,shift:0,bars:[],cells:[],cur:-1,style:null};
@@ -1480,7 +1548,7 @@ function cRender(){
     el.append(c,tm);el.onclick=()=>cPlayAt(b.t);
     chart.append(el);CS.cells.push(el);
   });
-  $('cNote').textContent='Chạm vào một ô để nghe từ chỗ đó. App nhận hợp âm trưởng, thứ và hợp âm 7 (như E7, A7). Các loại khác như m7, sus, dim sẽ hiện thành hợp âm trưởng hoặc thứ gần nhất.'+(r.tune?' Bài này lên dây lệch khoảng '+(r.tune>0?'+':'−')+'33 cent so với chuẩn, app đã tự bù.':'');
+  $('cNote').textContent='Chạm vào một ô để nghe từ chỗ đó. App nhận hợp âm trưởng, thứ, hợp âm 7 (như E7, A7) và sus (như Esus4, Dsus2). Các loại khác như m7, maj7, dim sẽ hiện thành hợp âm trưởng hoặc thứ gần nhất.'+(r.tune?' Bài này lên dây lệch khoảng '+(r.tune>0?'+':'−')+'33 cent so với chuẩn, app đã tự bù.':'');
   $('cResult').hidden=false;
   cUpd();lyRender();
 }
@@ -1727,24 +1795,33 @@ $('lySave').onclick=async()=>{
 const store={get(k){try{return localStorage.getItem(k)||'';}catch(e){return '';}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 /* Đổi kết quả nhận dạng (đoạn + từng chữ có mốc thời gian) thành các câu lời */
 function lyFromWhisper(j){
-  const bad=/subscribe|đăng ký kênh|ghiền mì gõ|la la school|hẹn gặp lại các bạn|cảm ơn các bạn đã (theo dõi|xem)|video (tiếp theo|hấp dẫn)/i;
-  const words=(j.words||[]).map(w=>({w:String(w.word||'').trim(),s:+w.start,e:+w.end})).filter(w=>w.w&&w.s===w.s);
+  const bad=/subscribe|đăng ký kênh|ghiền mì gõ|la la school|hẹn gặp lại các bạn|cảm ơn các bạn đã (theo dõi|xem)|video (tiếp theo|hấp dẫn)|^lời bài hát tiếng việt\.?$|^song lyrics\.?$/i;
+  const segs=(j.segments||[]).map(s=>({s:+s.start,e:+s.end,txt:String(s.text||'').trim(),cr:+s.compression_ratio||0,ns:+s.no_speech_prob||0,lp:+s.avg_logprob||0}));
+  /* chỉ bỏ đoạn gần như chắc chắn do máy tự bịa (ở nhạc dạo, im lặng); lọc nhẹ tay để không mất lời thật */
+  const isBad=g=>!g.txt||bad.test(g.txt)||g.cr>3.2||(g.ns>0.85&&g.lp<-1)||g.lp<-1.7;
+  const good=segs.filter(g=>!isBad(g)),badR=segs.filter(isBad);
+  let words=(j.words||[]).map(w=>({w:String(w.word||'').trim(),s:+w.start,e:+w.end})).filter(w=>w.w&&w.s===w.s);
+  /* lấy MỌI chữ máy nghe được, trừ chữ nằm trong đoạn bị bỏ */
+  words=words.filter(w=>!badR.some(g=>w.s>=g.s-0.05&&w.s<g.e-0.05));
   const phrases=[];
-  for(const sg of j.segments||[]){
-    const txt=String(sg.text||'').trim();if(!txt)continue;
-    /* bỏ đoạn máy tự bịa ra ở chỗ nhạc dạo hoặc im lặng */
-    if(bad.test(txt)||sg.compression_ratio>2.6||(sg.no_speech_prob>0.6&&sg.avg_logprob<-0.8))continue;
-    let ws=words.filter(w=>w.s>=sg.start-0.05&&w.s<sg.end+0.05);
-    if(!ws.length){const tk=txt.split(/\s+/),d=(sg.end-sg.start)/tk.length;ws=tk.map((w,i)=>({w,s:sg.start+i*d,e:sg.start+(i+1)*d}));}
-    /* tách câu ở chỗ ngắt hơi dài; câu quá dài thì tách tiếp ở chỗ ngắt lớn nhất */
-    let cur=[ws[0]];const parts=[cur];
-    for(let i=1;i<ws.length;i++){if(ws[i].s-ws[i-1].e>=0.8){cur=[];parts.push(cur);}cur.push(ws[i]);}
-    while(parts.some(p=>p.length>14)){
-      const pi=parts.findIndex(p=>p.length>14),p=parts[pi];let bi=Math.floor(p.length/2),bg=-1;
-      for(let i=3;i<p.length-2;i++){const g=p[i].s-p[i-1].e;if(g>bg){bg=g;bi=i;}}
-      parts.splice(pi,1,p.slice(0,bi),p.slice(bi));
+  if(words.length){
+    /* xuống dòng khi sang đoạn mới của máy nhận dạng, hoặc khi ngắt hơi từ 0,8 giây */
+    const segOf=w=>{let k=-1;for(let i=0;i<good.length;i++)if(good[i].s<=w.s+0.05)k=i;return k;};
+    let cur=null,ps=-2;
+    for(let i=0;i<words.length;i++){
+      const w=words[i],sg=segOf(w);
+      if(!cur||sg!==ps||w.s-words[i-1].e>=0.8){cur=[];phrases.push(cur);}
+      cur.push(w);ps=sg;
     }
-    for(const p of parts)phrases.push(p);
+  }else for(const g of good){
+    const tk=g.txt.split(/\s+/),d=(g.e-g.s)/tk.length;
+    phrases.push(tk.map((w,i)=>({w,s:g.s+i*d,e:g.s+(i+1)*d})));
+  }
+  /* câu quá dài thì tách ở chỗ ngắt lớn nhất */
+  while(phrases.some(p=>p.length>14)){
+    const pi=phrases.findIndex(p=>p.length>14),p=phrases[pi];let bi=Math.floor(p.length/2),bg=-1;
+    for(let i=3;i<p.length-2;i++){const g=p[i].s-p[i-1].e;if(g>bg){bg=g;bi=i;}}
+    phrases.splice(pi,1,p.slice(0,bi),p.slice(bi));
   }
   const lines=[];let prevEnd=null;
   for(const p of phrases){
@@ -1762,7 +1839,7 @@ function lySetLines(lines){
   lyRender();
 }
 function whStat(msg,err){const el=$('whStat');el.textContent=msg;el.style.color=err?'var(--high)':'var(--ink)';}
-$('whSave').onclick=()=>{store.set('groqKey',$('whKey').value.trim());store.set('whLang',$('whLang').value);whStat('Đã lưu cài đặt.');$('whSet').open=false;};
+$('whSave').onclick=()=>{store.set('groqKey',$('whKey').value.trim());store.set('whLang',$('whLang').value);$('hKey').value=$('whKey').value.trim();$('hLang').value=$('whLang').value;whStat('Đã lưu cài đặt.');$('whSet').open=false;};
 $('lyWh').onclick=async()=>{
   if(!CS.res)return;
   const key=store.get('groqKey');
@@ -1779,8 +1856,12 @@ $('lyWh').onclick=async()=>{
       /* làm mượt nhẹ rồi nội suy tuyến tính */
       y[i]=(0.25*a+0.5*b+0.25*c)*(1-f)+(0.25*b+0.5*c+0.25*d)*f;
     }
+    /* cắt bớt tiếng bass và trống cái dưới 110 Hz (lọc hai lần), rồi đưa âm lượng về mức chuẩn, để giọng hát nổi hơn */
+    for(let pass=0;pass<2;pass++){let px=0,py=0;for(let i=0;i<n;i++){const v=0.9586*(py+y[i]-px);px=y[i];py=v;y[i]=v;}}
+    let pk=1e-6;for(let i=0;i<n;i++){const v=y[i]<0?-y[i]:y[i];if(v>pk)pk=v;}
+    const gn=0.9/pk;for(let i=0;i<n;i++)y[i]*=gn;
     try{
-      const m=await mp3Bytes(y,p=>{$('whProg').value=p;whStat('Đang nén bài hát: '+Math.round(p*100)+'%');},16000,64);
+      const m=await mp3Bytes(y,p=>{$('whProg').value=p;whStat('Đang nén bài hát: '+Math.round(p*100)+'%');},16000,96);
       if(m.length>1000){blob=new Blob([m],{type:'audio/mpeg'});name='song.mp3';}
     }catch(e){}
     if(!blob){
@@ -1797,6 +1878,8 @@ $('lyWh').onclick=async()=>{
   fd.append('file',blob,name);fd.append('model','whisper-large-v3');fd.append('response_format','verbose_json');
   fd.append('timestamp_granularities[]','word');fd.append('timestamp_granularities[]','segment');fd.append('temperature','0');
   const lang=store.get('whLang')||($('whLang').value);if(lang)fd.append('language',lang);
+  /* gợi ý cho máy biết đây là lời bài hát */
+  fd.append('prompt',lang==='en'?'Song lyrics.':'Lời bài hát tiếng Việt.');
   /* tiến độ: phần gửi file đo được theo phần trăm; phần máy chủ nhận dạng không báo tiến độ nên hiện số giây đã chờ */
   const prog=$('whProg'),t0=Date.now();let sent=false;
   for(const id of ['lyWh','lyStart','cPick','cDemo'])$(id).disabled=true;
@@ -1825,26 +1908,41 @@ $('lyWh').onclick=async()=>{
   const lines=lyFromWhisper(j);
   if(!lines.length){whStat('Không nghe ra lời nào trong bài này. Bài có thể là nhạc không lời, hoặc tiếng hát quá nhỏ so với nhạc.',true);return;}
   lySetLines(lines);lyStat('');
-  whStat('Đã lấy được '+lines.filter(L=>!L.blank).length+' câu lời và điền hợp âm. Máy nghe lời bài hát có nhạc thường sai một số chữ: sửa lời trong ô lời bên dưới rồi bấm "Cập nhật lời đã sửa" (giữ nguyên số dòng).');
+  whStat('Đã lấy được '+lines.filter(L=>!L.blank).length+' câu lời và điền hợp âm. Máy nghe lời bài hát có nhạc thường sai một số chữ: sửa chữ, thêm dòng bị thiếu hoặc xóa dòng thừa trong ô lời bên dưới rồi bấm "Cập nhật lời đã sửa".');
 };
 /* Sửa chữ trong ô lời mà vẫn giữ mốc thời gian của từng câu */
 $('lyUpd').onclick=()=>{
   if(!LY.on)return;
-  const txt=$('lyIn').value.split('\n').map(s=>s.trim()).filter(s=>s),idx=[];
-  LY.lines.forEach((L,i)=>{if(!L.blank)idx.push(i);});
-  if(txt.length!==idx.length){lyStat('Số dòng lời đã đổi ('+txt.length+' so với '+idx.length+'). Để giữ mốc thời gian, hãy giữ nguyên số dòng, chỉ sửa chữ trong từng dòng.',true);return;}
-  idx.forEach((li,n)=>{
-    const L=LY.lines[li],w=txt[n].split(/\s+/);
-    if(L.wt&&w.length!==L.wt.length){
-      /* số chữ đổi: rải đều mốc thời gian giữa chữ đầu và chữ cuối của câu cũ */
-      const a=L.wt[0],b=L.wt[L.wt.length-1];
-      L.wt=w.map((_,k)=>w.length>1?a+(b-a)*k/(w.length-1):a);
-    }
-    L.text=txt[n];L.words=w;
-  });
-  LY.src=$('lyIn').value;LY.sel=null;
-  idx.forEach(li=>lyAuto(li));
-  lyRender();lyStat('Đã cập nhật lời.');
+  const raw=$('lyIn').value.split('\n').map(s=>s.trim()),old=LY.lines.filter(L=>!L.blank),out=[];
+  const sim=(a,b)=>{const A=new Set(a.toLowerCase().split(/\s+/));let k=0;const B=b.toLowerCase().split(/\s+/);for(const w of B)if(A.has(w))k++;return k/Math.max(A.size,B.length);};
+  let j=0,added=0;
+  for(const s of raw){
+    if(!s){if(out.length&&!out[out.length-1].blank)out.push({blank:true});continue;}
+    const w=s.split(/\s+/);
+    /* dòng giữ nguyên: tìm đúng câu cũ phía sau; dòng sửa chữ: giống câu cũ kế tiếp từ một nửa trở lên; còn lại là dòng thêm mới */
+    let k=-1;for(let q=j;q<old.length&&q<j+6;q++)if(old[q].text===s){k=q;break;}
+    if(k<0&&j<old.length&&sim(old[j].text,s)>=0.5)k=j;
+    if(k>=0){
+      const L=old[k];j=k+1;
+      if(L.wt&&w.length!==L.wt.length){const a=L.wt[0],b=L.wt[L.wt.length-1];L.wt=w.map((_,i)=>w.length>1?a+(b-a)*i/(w.length-1):a);}
+      L.text=s;L.words=w;out.push(L);
+    }else{out.push({text:s,words:w,t:null,pl:[],added:true});added++;}
+  }
+  while(out.length&&out[out.length-1].blank)out.pop();
+  if(!out.length){lyStat('Ô lời đang trống.',true);return;}
+  /* dòng thêm mới chưa có mốc: tạm đặt vào khoảng giữa câu trước và câu sau */
+  const real=out.filter(L=>!L.blank);
+  for(let i=0;i<real.length;i++){
+    if(real[i].t!=null)continue;
+    let a=i-1,b=i;while(b<real.length&&real[b].t==null)b++;
+    const ta=a>=0?real[a].t:Math.max(0,(b<real.length?real[b].t:0)-4*(b-i)),tb=b<real.length?real[b].t:ta+4*(b-a);
+    for(let q=i;q<b;q++){real[q].t=ta+(tb-ta)*(q-a)/(b-a);real[q].manual=false;}
+    i=b-1;
+  }
+  LY.lines=out;LY.src=$('lyIn').value;LY.sel=null;LY.ptr=-1;
+  out.forEach((L,i)=>lyAuto(i));
+  lyRender();
+  lyStat(added?'Đã cập nhật lời. Có '+added+' dòng thêm mới, app tạm đặt chúng vào giữa câu trước và câu sau: chạm vào mốc thời gian đầu dòng đó, bấm Phát rồi bấm "Câu này bắt đầu hát" để đặt lại cho đúng.':'Đã cập nhật lời.');
 };
 
 /* ---- khác biệt giữa app và trang web ---- */
@@ -1852,6 +1950,14 @@ if(IS_APP){
   $('whBox').hidden=false;$('lyAI').hidden=true;$('aiHint').hidden=true;
   $('lyLead').textContent='Dán lời bài hát vào ô dưới, mỗi câu hát một dòng, để trống một dòng giữa các đoạn. Rồi bấm "Tự đánh dấu từng câu", bấm Phát và đánh dấu lúc mỗi câu bắt đầu hát.';
   $('whKey').value=store.get('groqKey');$('whLang').value=store.get('whLang')||'vi';
+  /* cài đặt ở trang đầu: cùng một khóa và ngôn ngữ với phần cài đặt trong màn hình dò hợp âm */
+  $('hGear').hidden=false;$('hKey').value=store.get('groqKey');$('hLang').value=store.get('whLang')||'vi';
+  $('hGear').onclick=()=>{const o=$('hSet').hidden;$('hSet').hidden=!o;$('hGear').setAttribute('aria-expanded',String(o));$('hMsg').textContent='';};
+  $('hSave').onclick=()=>{
+    store.set('groqKey',$('hKey').value.trim());store.set('whLang',$('hLang').value);
+    $('whKey').value=$('hKey').value.trim();$('whLang').value=$('hLang').value;
+    $('hMsg').textContent='Đã lưu cài đặt.';
+  };
   $('expHint').textContent='Xuất bản đang nghe. File được lưu vào thư mục Download/DoNotHopAm trong máy.';
 }
 /* nút Back của Android: đang ở màn hình con thì về trang đầu, đang ở trang đầu thì thoát app */
