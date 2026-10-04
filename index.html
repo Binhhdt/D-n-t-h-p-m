@@ -721,20 +721,35 @@ async function analyzeSong(x,onProg){
   const bpm=60/median(ivs);
   await tick(0.4);
 
-  /* ---- 4. Chroma 36 ô (3 ô mỗi nửa cung) từ các đỉnh phổ, kèm chroma dải trầm ---- */
-  const n2=4096,h2=2048,nC=Math.floor((x.length-n2)/h2)+1,fft2=makeFFT(n2),w2=hann(n2),r2=new Float32Array(n2),i2=new Float32Array(n2),mg=new Float32Array(n2/2);
-  const ch=new Float32Array(nC*36),bs=new Float32Array(nC*36),kLo=Math.ceil(60*n2/sr),kHi=Math.floor(2100*n2/sr);
+  /* ---- 4. Phổ từng khung, lọc bỏ tiếng gõ (giữ phần ngân), rồi chroma 36 ô từ các đỉnh phổ ---- */
+  const n2=4096,h2=2048,nC=Math.floor((x.length-n2)/h2)+1,fft2=makeFFT(n2),w2=hann(n2),r2=new Float32Array(n2),i2=new Float32Array(n2);
+  const kLo=Math.ceil(60*n2/sr),kHi=Math.floor(2100*n2/sr),NB=kHi-kLo+3,SP=new Float32Array(nC*NB);
   for(let f=0;f<nC;f++){
     const o=f*h2;for(let i=0;i<n2;i++){r2[i]=x[o+i]*w2[i];i2[i]=0;}
     fft2(r2,i2);
-    for(let k=kLo-1;k<=kHi+1;k++)mg[k]=Math.sqrt(r2[k]*r2[k]+i2[k]*i2[k]);
-    for(let k=kLo;k<=kHi;k++){
-      const b=mg[k];if(b<=mg[k-1]||b<mg[k+1])continue;
-      const a=mg[k-1],c=mg[k+1],d=a-2*b+c,fr=(k+(d<0?0.5*(a-c)/d:0))*sr/n2;
-      const idx=((Math.round(36*Math.log2(fr/261.6256))%36)+36)%36,w=Math.sqrt(b);
+    for(let b=0;b<NB;b++){const k=kLo-1+b;SP[f*NB+b]=Math.sqrt(r2[k]*r2[k]+i2[k]*i2[k]);}
+    if((f&31)===0&&performance.now()-last>40){await tick(0.4+0.3*f/nC);last=performance.now();}
+  }
+  /* Tách phần ngân khỏi phần gõ: nốt nhạc kéo dài theo thời gian, tiếng trống trải rộng theo tần số.
+     So trung vị theo thời gian (9 khung) với trung vị theo tần số (17 ô) để giữ lại phần ngân. */
+  const mt=new Float32Array(17);
+  const med=n=>{for(let i=1;i<n;i++){const v=mt[i];let j=i-1;while(j>=0&&mt[j]>v){mt[j+1]=mt[j];j--;}mt[j+1]=v;}return mt[n>>1];};
+  const ch=new Float32Array(nC*36),bs=new Float32Array(nC*36),row=new Float32Array(NB);
+  for(let f=0;f<nC;f++){
+    for(let b=0;b<NB;b++){
+      let n=0;for(let d=-4;d<=4;d++){const g=f+d;if(g>=0&&g<nC)mt[n++]=SP[g*NB+b];}
+      const H=med(n);
+      n=0;for(let d=-8;d<=8;d++){const g=b+d;if(g>=0&&g<NB)mt[n++]=SP[f*NB+g];}
+      const Pm=med(n);
+      row[b]=SP[f*NB+b]*H*H/(H*H+Pm*Pm+1e-12);
+    }
+    for(let b=1;b<NB-1;b++){
+      const v=row[b];if(v<=row[b-1]||v<row[b+1])continue;
+      const a=row[b-1],q=row[b+1],d=a-2*v+q,fr=(kLo-1+b+(d<0?0.5*(a-q)/d:0))*sr/n2;
+      const idx=((Math.round(36*Math.log2(fr/261.6256))%36)+36)%36,w=Math.sqrt(v);
       ch[f*36+idx]+=w;if(fr<260)bs[f*36+idx]+=w;
     }
-    if((f&31)===0&&performance.now()-last>40){await tick(0.4+0.55*f/nC);last=performance.now();}
+    if((f&15)===0&&performance.now()-last>40){await tick(0.7+0.25*f/nC);last=performance.now();}
   }
   /* lên dây lệch chuẩn: chọn độ lệch (-33, 0, +33 cent) có nhiều năng lượng nhất */
   let tune=0,tb=-1;
@@ -742,7 +757,15 @@ async function analyzeSong(x,onProg){
   const fold=(src,f,out)=>{for(let p=0;p<12;p++){let s=0;for(let d=-1;d<=1;d++)s+=src[f*36+(3*p+tune+d+36)%36];out[p]+=s;}};
 
   /* ---- 5. Chroma theo từng phách và chấm điểm 24 hợp âm ---- */
-  const nB=beats.length,bt=beats.concat([beats[nB-1]+60/bpm]),sc=[],en=new Float32Array(nB),tot=new Float32Array(12);
+  /* Mẫu hợp âm có tính cả bồi âm: mỗi nốt còn vang ở quãng 5 và quãng 3 trưởng phía trên nó */
+  const TPL=[];
+  for(let s=0;s<24;s++){
+    const r=s%12,t=new Float32Array(12);
+    for(const p of [r,r+(s<12?4:3),r+7]){t[p%12]+=1.82;t[(p+7)%12]+=0.44;t[(p+4)%12]+=0.13;}
+    let nn=0;for(let i=0;i<12;i++)nn+=t[i]*t[i];nn=Math.sqrt(nn);for(let i=0;i<12;i++)t[i]/=nn;
+    TPL.push(t);
+  }
+  const nB=beats.length,bt=beats.concat([beats[nB-1]+60/bpm]),sc=[],cn=[],en=new Float32Array(nB),tot=new Float32Array(12);
   for(let b=0;b<nB;b++){
     const c=new Float32Array(12),ba=new Float32Array(12);
     let f0=Math.round((bt[b]*sr-n2/2)/h2),f1=Math.round((bt[b+1]*sr-n2/2)/h2);
@@ -750,27 +773,31 @@ async function analyzeSong(x,onProg){
     for(let f=f0;f<f1;f++){fold(ch,f,c);fold(bs,f,ba);}
     let nc=0,nb=0,s=0;for(let p=0;p<12;p++){nc+=c[p]*c[p];nb+=ba[p]*ba[p];s+=c[p];}
     en[b]=s/(f1-f0);nc=Math.sqrt(nc)||1;nb=Math.sqrt(nb)||1;
-    const row=new Float32Array(25);
-    for(let r=0;r<12;r++){
-      tot[r]+=c[r]/nc;
-      const fi=c[(r+7)%12],bb=0.25*ba[r]/nb;
-      row[r]=(c[r]+c[(r+4)%12]+fi)/nc/1.7321+bb;
-      row[12+r]=(c[r]+c[(r+3)%12]+fi)/nc/1.7321+bb;
-    }
-    sc.push(row);
+    for(let p=0;p<12;p++){c[p]/=nc;tot[p]+=c[p];}
+    cn.push(c);
+    const row2=new Float32Array(25);
+    for(let s2=0;s2<24;s2++){const t=TPL[s2];let d=0;for(let p=0;p<12;p++)d+=c[p]*t[p];row2[s2]=d+0.25*ba[s2%12]/nb;}
+    sc.push(row2);
   }
   const enMed=median(en);
   for(let b=0;b<nB;b++)sc[b][24]=en[b]<0.08*enMed?10:0.35;
-  /* Viterbi: phạt mỗi lần đổi hợp âm để kết quả không nhảy lung tung */
-  const PEN=0.18,V=new Float32Array(25),bp=[];
-  for(let s=0;s<25;s++)V[s]=sc[0][s];
-  for(let b=1;b<nB;b++){
-    let ms=0;for(let s=1;s<25;s++)if(V[s]>V[ms])ms=s;
-    const nv=new Float32Array(25),pb=new Int8Array(25);
-    for(let s=0;s<25;s++){if(V[s]>=V[ms]-PEN){nv[s]=V[s]+sc[b][s];pb[s]=s;}else{nv[s]=V[ms]-PEN+sc[b][s];pb[s]=ms;}}
-    V.set(nv);bp.push(pb);
-  }
-  const chord=new Int8Array(nB);{let s=0;for(let k=1;k<25;k++)if(V[k]>V[s])s=k;for(let b=nB-1;b>=0;b--){chord[b]=s;if(b>0)s=bp[b-1][s];}}
+  /* Viterbi: phạt mỗi lần đổi hợp âm để kết quả không nhảy lung tung.
+     pen(b) = mức phạt khi đổi hợp âm ở phách b; bonus[s] = điểm cộng cho hợp âm s */
+  const viterbi=(pen,bonus)=>{
+    const V=new Float32Array(25),bp=[];
+    for(let s=0;s<25;s++)V[s]=sc[0][s]+bonus[s];
+    for(let b=1;b<nB;b++){
+      const PEN=pen(b);let ms=0;for(let s=1;s<25;s++)if(V[s]>V[ms])ms=s;
+      const nv=new Float32Array(25),pb=new Int8Array(25);
+      for(let s=0;s<25;s++){const e=sc[b][s]+bonus[s];if(V[s]>=V[ms]-PEN){nv[s]=V[s]+e;pb[s]=s;}else{nv[s]=V[ms]-PEN+e;pb[s]=ms;}}
+      V.set(nv);bp.push(pb);
+    }
+    const out=new Int8Array(nB);let s=0;for(let k=1;k<25;k++)if(V[k]>V[s])s=k;
+    for(let b=nB-1;b>=0;b--){out[b]=s;if(b>0)s=bp[b-1][s];}
+    return out;
+  };
+  const zero=new Float32Array(25);
+  let chord=viterbi(()=>0.18,zero);
 
   /* ---- 6. Loại nhịp (3 hay 4 phách) và phách mạnh, dựa vào chỗ đổi hợp âm và nhấn trầm ---- */
   const acc=new Float32Array(nB);
@@ -789,16 +816,40 @@ async function analyzeSong(x,onProg){
   }
 
   /* ---- 7. Tone: hồ sơ Krumhansl trên chroma cộng với thống kê hợp âm ---- */
-  const dur=new Float32Array(24);let dsum=0,first=-1,lastC=-1;
-  for(let b=0;b<nB;b++){const c=chord[b];if(c<24){dur[c]++;dsum++;if(first<0)first=c;lastC=c;}}
   const corr=(prof,t)=>{let mh=0,mp=0;for(let i=0;i<12;i++){mh+=tot[i];mp+=prof[i];}mh/=12;mp/=12;let a=0,b=0,c=0;for(let i=0;i<12;i++){const u=tot[(i+t)%12]-mh,v=prof[i]-mp;a+=u*v;b+=u*u;c+=v*v;}return b>0?a/Math.sqrt(b*c):0;};
-  let key={tonic:0,minor:false},kb=-1e9;
-  for(let t=0;t<12;t++)for(const mi of [false,true]){
-    const dia=mi?[12+t,12+(t+5)%12,12+(t+7)%12,(t+7)%12,(t+3)%12,(t+8)%12,(t+10)%12]:[t,(t+5)%12,(t+7)%12,12+(t+2)%12,12+(t+4)%12,12+(t+9)%12];
-    let d=0;for(const c of dia)d+=dur[c];
-    const ton=mi?12+t:t;
-    const v=corr(mi?KS_MIN:KS_MAJ,t)+0.6*(dsum?d/dsum:0)+0.8*(dsum?dur[ton]/dsum:0)+(lastC===ton?0.15:0)+(first===ton?0.1:0);
-    if(v>kb){kb=v;key={tonic:t,minor:mi};}
+  const diaOf=(t,mi)=>mi?[12+t,12+(t+5)%12,12+(t+7)%12,(t+7)%12,(t+3)%12,(t+8)%12,(t+10)%12]:[t,(t+5)%12,(t+7)%12,12+(t+2)%12,12+(t+4)%12,12+(t+9)%12];
+  const findKey=()=>{
+    const dur=new Float32Array(24);let dsum=0,first=-1,lastC=-1;
+    for(let b=0;b<nB;b++){const c=chord[b];if(c<24){dur[c]++;dsum++;if(first<0)first=c;lastC=c;}}
+    let k={tonic:0,minor:false},kb=-1e9;
+    for(let t=0;t<12;t++)for(const mi of [false,true]){
+      let d=0;for(const c of diaOf(t,mi))d+=dur[c];
+      const ton=mi?12+t:t;
+      const v=corr(mi?KS_MIN:KS_MAJ,t)+0.6*(dsum?d/dsum:0)+0.8*(dsum?dur[ton]/dsum:0)+(lastC===ton?0.15:0)+(first===ton?0.1:0);
+      if(v>kb){kb=v;k={tonic:t,minor:mi};}
+    }
+    return k;
+  };
+  let key=findKey();
+  /* Lượt hai: ưu tiên nhẹ các hợp âm thuộc tone, và ưu tiên đổi hợp âm ở đầu ô nhịp */
+  {
+    const bonus=new Float32Array(25);for(const c of diaOf(key.tonic,key.minor))bonus[c]=0.04;
+    chord=viterbi(b=>{const pos=((b-down)%meter+meter)%meter;return pos===0?0.12:(meter===4&&pos===2)?0.18:0.27;},bonus);
+    key=findKey();
+  }
+  /* Hợp âm 7: trong mỗi đoạn hợp âm trưởng, nếu nốt quãng 7 thứ vang rõ thì ghi thành hợp âm 7.
+     Ngưỡng thấp hơn khi hợp âm kế tiếp nằm trên nó một quãng 4 (kiểu E7 về Am, A7 về Dm). Mã hợp âm 7 = mã gốc + 100. */
+  for(let a=0;a<nB;){
+    let e=a;while(e<nB&&chord[e]===chord[a])e++;
+    const c=chord[a];
+    if(c<12){
+      const m=new Float32Array(12);for(let b=a;b<e;b++)for(let p=0;p<12;p++)m[p]+=cn[b][p];
+      const tri=(m[c]+m[(c+4)%12]+m[(c+7)%12])/3,b7=m[(c+10)%12],M7=m[(c+11)%12];
+      let nx=e;while(nx<nB&&chord[nx]===24)nx++;
+      const res=nx<nB&&chord[nx]%12===(c+5)%12;
+      if(b7>=(res?0.42:0.62)*tri&&b7>1.15*M7)for(let b=a;b<e;b++)chord[b]=c+100;
+    }
+    a=e;
   }
 
   /* ---- 8. Điệu: mẫu tiết tấu dải trầm trung bình trên một ô nhịp + cảm giác chùm ba + tempo ---- */
@@ -829,7 +880,7 @@ async function analyzeSong(x,onProg){
 
 /* tên hợp âm / tone, có dịch tone; dùng dấu giáng với các tone quen viết giáng */
 function keyUsesFlat(tonic,minor){return (minor?MIN_FLAT:MAJ_FLAT).includes(tonic);}
-function chordName(c,shift,flat){if(c>=24)return '–';const r=((c%12)+shift+120)%12;return (flat?FLAT:NAMES)[r]+(c>=12?'m':'');}
+function chordName(c,shift,flat){if(c===24)return '–';const b=c%100,r=((b%12)+shift+120)%12;return (flat?FLAT:NAMES)[r]+(b>=12?'m':'')+(c>=100?'7':'');}
 
 /* Bài mẫu tổng hợp để thử: bass + tiếng gõ theo mẫu của điệu, hợp âm ngân */
 function makeSong(style,bpm,prog,bars){
@@ -837,9 +888,9 @@ function makeSong(style,bpm,prog,bars){
   const pt=pats[style],bpb=style==='valse'?3:4,spb=60/bpm,sr=SR,N=Math.ceil((bars*bpb*spb+1.5)*sr),x=new Float32Array(N);
   let seed=7;const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x3fffffff-1;};
   for(let bar=0;bar<bars;bar++){
-    const c=prog[bar%prog.length],root=c%12,third=root+(c>=12?3:4),t0=0.5+bar*bpb*spb,L=bpb*spb;
+    const c0=prog[bar%prog.length],c=c0%100,root=c%12,third=root+(c>=12?3:4),t0=0.5+bar*bpb*spb,L=bpb*spb;
     const s0=Math.floor(t0*sr),n=Math.floor(L*sr);
-    for(const [semi,amp] of [[root,1],[third,0.9],[root+7,0.9],[root+12,0.6],[third+12,0.5]]){
+    for(const [semi,amp] of [[root,1],[third,0.9],[root+7,0.9],[root+12,0.6],[third+12,0.5]].concat(c0>=100?[[root+10,0.8]]:[])){
       const f=midiToHz(48+semi);
       for(let i=0;i<n;i++){const t=i/sr,env=Math.min(1,i/400,(n-i)/400)*(0.6+0.4*Math.exp(-t*2));
         x[s0+i]+=0.045*amp*env*(Math.sin(2*Math.PI*f*t)+0.5*Math.sin(4*Math.PI*f*t)+0.25*Math.sin(6*Math.PI*f*t));}
@@ -1122,13 +1173,13 @@ async function saveOut(name,data,mime){
 }
 const saveErr=e=>{const c=e&&e.code;return c==='declined'?'Bạn đã hủy lưu file.':c==='rate_limited'?'Đang có một yêu cầu lưu khác. Hãy đợi vài giây rồi bấm lại.':c==='too_large'?'File quá lớn để lưu ở đây.':c==='app'?'Không lưu được file: '+e.message:'Không lưu được file ở trình xem này.';};
 function loadScript(u){return new Promise((ok,no)=>{const s=document.createElement('script');s.src=u;s.onload=ok;s.onerror=no;document.head.append(s);});}
-async function mp3Bytes(f,onProg){
+async function mp3Bytes(f,onProg,sr,kbps){
   if(!window.lamejs&&IS_APP){try{await loadScript('lame.min.js');}catch(e){}}
-  if(!window.lamejs){
+  if(!window.lamejs&&!IS_APP){
     try{await loadScript('https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js');}
     catch(e){await loadScript('https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.0/lame.min.js');}
   }
-  const enc=new lamejs.Mp3Encoder(1,R,192),CH=1152*32,pcm=new Int16Array(CH),parts=[];let size=0,last=performance.now();
+  const enc=new lamejs.Mp3Encoder(1,sr||R,kbps||192),CH=1152*32,pcm=new Int16Array(CH),parts=[];let size=0,last=performance.now();
   for(let p=0;p<f.length;p+=CH){
     const n=Math.min(CH,f.length-p);
     for(let i=0;i<n;i++){const s=f[p+i]<-1?-1:f[p+i]>1?1:f[p+i];pcm[i]=s<0?s*32768:s*32767;}
@@ -1391,7 +1442,7 @@ $('cFile').onchange=async e=>{
   cAnalyze(downsample2(m),buf,f.name,f);
 };
 $('cDemo').onclick=()=>{
-  const x=makeSong('bolero',78,[21,14,7,0,5,14,4,21],16);
+  const x=makeSong('bolero',78,[21,14,7,0,5,14,104,21],16);
   const buf=new AudioBuffer({length:x.length,sampleRate:SR,numberOfChannels:1});
   buf.getChannelData(0).set(x);
   cAnalyze(x,buf,'bài mẫu tổng hợp (Bolero, tone Am, 78 BPM)');
@@ -1414,7 +1465,7 @@ function cRender(){
   $('cReset').disabled=!sh;
   /* các hợp âm có trong bài, nhiều nhất xếp trước */
   const cnt=new Map();
-  for(const b of CS.bars)for(const c of b.chords)if(c<24)cnt.set(c,(cnt.get(c)||0)+1);
+  for(const b of CS.bars)for(const c of b.chords)if(c!==24)cnt.set(c,(cnt.get(c)||0)+1);
   const chips=$('cChips');chips.textContent='';
   for(const [c,k] of [...cnt.entries()].sort((a,b)=>b[1]-a[1])){
     const el=document.createElement('span');el.className='chip';el.textContent=chordName(c,sh,flat);
@@ -1429,7 +1480,7 @@ function cRender(){
     el.append(c,tm);el.onclick=()=>cPlayAt(b.t);
     chart.append(el);CS.cells.push(el);
   });
-  $('cNote').textContent='Chạm vào một ô để nghe từ chỗ đó. App chỉ nhận hợp âm trưởng và thứ; hợp âm 7, sus, dim sẽ hiện thành hợp âm trưởng hoặc thứ gần nhất.'+(r.tune?' Bài này lên dây lệch khoảng '+(r.tune>0?'+':'−')+'33 cent so với chuẩn, app đã tự bù.':'');
+  $('cNote').textContent='Chạm vào một ô để nghe từ chỗ đó. App nhận hợp âm trưởng, thứ và hợp âm 7 (như E7, A7). Các loại khác như m7, sus, dim sẽ hiện thành hợp âm trưởng hoặc thứ gần nhất.'+(r.tune?' Bài này lên dây lệch khoảng '+(r.tune>0?'+':'−')+'33 cent so với chuẩn, app đã tự bù.':'');
   $('cResult').hidden=false;
   cUpd();lyRender();
 }
@@ -1491,7 +1542,7 @@ if(document.fonts&&document.fonts.ready)document.fonts.ready.then(draw);
 const LY={lines:[],ptr:-1,sel:null,on:false};
 function lyEvents(){
   const r=CS.res,ev=[];let prev=-1;
-  for(let b=0;b<r.beats.length;b++){const c=r.chord[b];if(c>=24)continue;if(c!==prev)ev.push({t:r.beats[b],c});prev=c;}
+  for(let b=0;b<r.beats.length;b++){const c=r.chord[b];if(c===24)continue;if(c!==prev)ev.push({t:r.beats[b],c});prev=c;}
   return ev;
 }
 const lyNext=(i,d)=>{for(let j=i+d;j>=0&&j<LY.lines.length;j+=d)if(!LY.lines[j].blank)return j;return -1;};
@@ -1717,9 +1768,30 @@ $('lyWh').onclick=async()=>{
   const key=store.get('groqKey');
   if(!key){$('whSet').open=true;whStat('Chưa có khóa Groq. Hãy dán khóa vào ô "Cài đặt nhận dạng lời" rồi bấm Lưu cài đặt.',true);return;}
   /* gửi file gốc nếu đủ nhỏ, không thì gửi bản mono 22 kHz; giới hạn của gói miễn phí là 25 MB */
+  /* Nén trước khi gửi cho nhanh: máy nhận dạng chỉ cần mono 16 kHz, nên bản nén nhỏ hơn file gốc nhiều lần */
   let blob=null,name='song.wav';
-  if(CS.file&&CS.file.size<=24e6){blob=CS.file;name=CS.file.name||'song.mp3';}
-  else if(CS.mono&&CS.mono.length*2+44<=24e6)blob=new Blob([wavBytes(CS.mono,SR)],{type:'audio/wav'});
+  $('lyWh').disabled=true;$('whProg').hidden=false;$('whProg').value=0;whStat('Đang nén bài hát để gửi cho nhanh…');
+  await sleep0();
+  try{
+    const x=CS.mono,n=Math.floor(x.length*16000/SR),y=new Float32Array(n),st=SR/16000;
+    for(let i=0;i<n;i++){
+      const q=i*st,k=Math.floor(q),f=q-k,a=k>0?x[k-1]:x[k],b=x[k],c=k+1<x.length?x[k+1]:b,d=k+2<x.length?x[k+2]:c;
+      /* làm mượt nhẹ rồi nội suy tuyến tính */
+      y[i]=(0.25*a+0.5*b+0.25*c)*(1-f)+(0.25*b+0.5*c+0.25*d)*f;
+    }
+    try{
+      const m=await mp3Bytes(y,p=>{$('whProg').value=p;whStat('Đang nén bài hát: '+Math.round(p*100)+'%');},16000,64);
+      if(m.length>1000){blob=new Blob([m],{type:'audio/mpeg'});name='song.mp3';}
+    }catch(e){}
+    if(!blob){
+      /* không có bộ nén MP3: gửi file gốc hoặc bản WAV 16 kHz, cái nào nhỏ hơn */
+      const wavSize=n*2+44;
+      if(CS.file&&CS.file.size<=24e6&&CS.file.size<=wavSize){blob=CS.file;name=CS.file.name||'song.mp3';}
+      else if(wavSize<=24e6)blob=new Blob([wavBytes(y,16000)],{type:'audio/wav'});
+      else if(CS.file&&CS.file.size<=24e6){blob=CS.file;name=CS.file.name||'song.mp3';}
+    }
+  }catch(e){}
+  $('lyWh').disabled=false;$('whProg').hidden=true;
   if(!blob){whStat('Bài này quá dài để gửi đi nhận dạng (giới hạn 25 MB). Hãy dùng file mp3 thay vì wav.',true);return;}
   const fd=new FormData();
   fd.append('file',blob,name);fd.append('model','whisper-large-v3');fd.append('response_format','verbose_json');
@@ -1728,7 +1800,8 @@ $('lyWh').onclick=async()=>{
   /* tiến độ: phần gửi file đo được theo phần trăm; phần máy chủ nhận dạng không báo tiến độ nên hiện số giây đã chờ */
   const prog=$('whProg'),t0=Date.now();let sent=false;
   for(const id of ['lyWh','lyStart','cPick','cDemo'])$(id).disabled=true;
-  prog.hidden=false;prog.value=0;whStat('Đang gửi bài hát: 0%');
+  const mb=(blob.size/1048576).toFixed(1);
+  prog.hidden=false;prog.value=0;whStat('Đang gửi bài hát ('+mb+' MB): 0%');
   const timer=setInterval(()=>{if(sent)whStat('Đã gửi xong. Đang nhận dạng lời, đã chờ '+Math.round((Date.now()-t0)/1000)+' giây…');},1000);
   let j=null,err='';
   try{
@@ -1737,7 +1810,7 @@ $('lyWh').onclick=async()=>{
       x.open('POST','https://api.groq.com/openai/v1/audio/transcriptions');
       x.setRequestHeader('Authorization','Bearer '+key);
       x.timeout=300000;
-      x.upload.onprogress=e=>{if(e.lengthComputable&&!sent){const p=e.loaded/e.total;prog.value=p;whStat('Đang gửi bài hát: '+Math.round(p*100)+'%');}};
+      x.upload.onprogress=e=>{if(e.lengthComputable&&!sent){const p=e.loaded/e.total;prog.value=p;whStat('Đang gửi bài hát ('+mb+' MB): '+Math.round(p*100)+'%');}};
       x.upload.onload=()=>{sent=true;prog.removeAttribute('value');};
       x.onload=()=>ok({status:x.status,text:x.responseText});
       x.onerror=()=>no('net');x.ontimeout=()=>no('timeout');
