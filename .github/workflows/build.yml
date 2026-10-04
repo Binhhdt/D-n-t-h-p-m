@@ -97,7 +97,7 @@ jobs:
               <application
                   android:label="Dò nốt hợp âm"
                   android:icon="@drawable/ic_app"
-                  android:theme="@android:style/Theme.Material.Light.NoActionBar"
+                  android:theme="@android:style/Theme.Material.NoActionBar"
                   android:hardwareAccelerated="true"
                   android:largeHeap="true">
                   <activity
@@ -163,7 +163,10 @@ jobs:
               @Override
               protected void onCreate(Bundle state) {
                   super.onCreate(state);
+                  getWindow().setStatusBarColor(0xFF0F1226);
+                  getWindow().setNavigationBarColor(0xFF0F1226);
                   web = new WebView(this);
+                  web.setBackgroundColor(0xFF0F1226);
                   setContentView(web);
                   WebSettings s = web.getSettings();
                   s.setJavaScriptEnabled(true);
