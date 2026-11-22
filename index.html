@@ -1869,7 +1869,8 @@ async function cAnalyze(x,buf,label,file,saved){
   cBusy(false);
   if(!r){cStatus('Không dò được bài này. Bài cần dài ít nhất khoảng 10 giây và có nhạc đệm rõ.',true);return;}
   CS.res=r;CS.buf=buf;CS.shift=saved?saved.shift:0;CS.style=saved?saved.style:null;cPaused=0;
-  CS.simple=!!saved?.simple;CS.source=saved?.source||'track';CS.comparison=saved?.comparison||null;CS.lyricFile=saved?.lyricFile||null;
+  const project=saved||{};
+  CS.simple=!!project.simple;CS.source=project.source||'track';CS.comparison=project.comparison||null;CS.lyricFile=project.lyricFile||null;
   LY.lines=[];LY.on=false;$('lyBox').hidden=true;whStat('');lyStat('');
   /* bài đã lưu: đặt lại lời và hợp âm đã ghép */
   if(saved&&saved.lines){
@@ -1930,7 +1931,8 @@ function cRender(){
   const r=CS.res,sh=CS.shift,mi=r.key.minor;
   CS.bars=cBars(r);
   const style=$('cStyleSel');
-  style.replaceChildren(...[...new Set(r.styles.map(s=>s.name).concat(ALL_STYLES))].map(n=>new Option(n,n)));
+  style.textContent='';
+  style.append(...[...new Set(r.styles.map(s=>s.name).concat(ALL_STYLES))].map(n=>new Option(n,n)));
   cTimeline();
   const nameOf=s=>{const t=(r.key.tonic+s+120)%12;return (keyUsesFlat(t,mi)?FLAT:NAMES)[t]+(mi?'m':'');};
   const t=(r.key.tonic+sh+120)%12,flat=cFlat(),kn=nameOf(sh);
@@ -2069,10 +2071,12 @@ function lyAuto(i){
   if(first&&!(L.pl[0]&&L.pl[0].w===0)){
     let j=ev.length-1;while(j>=0&&ev[j].t>L.t+0.25)j--;
     const e=ev[j];
-    if(e&&e.c!==NO_CHORD&&L.pl[0]?.c!==e.c)L.pl.unshift({w:0,c:e.c,id:e.id});
+    if(e&&e.c!==NO_CHORD&&(!L.pl[0]||L.pl[0].c!==e.c))L.pl.unshift({w:0,c:e.c,id:e.id});
   }
-  L.pl=L.pl.filter(p=>L.overrides?.[p.id]!==null);
-  for(const p of L.pl)if(L.overrides?.[p.id]!=null)p.w=Math.min(n,L.overrides[p.id]);
+  if(L.overrides){
+    L.pl=L.pl.filter(p=>L.overrides[p.id]!==null);
+    for(const p of L.pl)if(L.overrides[p.id]!=null)p.w=Math.min(n,L.overrides[p.id]);
+  }
   L.pl.push(...(L.extras||[]));
 }
 function lyRender(){
@@ -2192,7 +2196,10 @@ function lyEdit(fn){
   const s=LY.sel;if(!s)return;
   const L=LY.lines[s.i],q=L.pl[s.k];if(!q)return;
   cRememberLyricEdits();
-  if(!q.id)q.id=lyEvents().filter(e=>e.c===q.c).sort((a,b)=>Math.abs(a.t-L.t)-Math.abs(b.t-L.t))[0]?.id;
+  if(!q.id){
+    const match=lyEvents().filter(e=>e.c===q.c).sort((a,b)=>Math.abs(a.t-L.t)-Math.abs(b.t-L.t))[0];
+    if(match)q.id=match.id;
+  }
   const remove=fn(q,L)===false;
   if(q.id)L.overrides[q.id]=remove?null:q.w;
   if(remove){

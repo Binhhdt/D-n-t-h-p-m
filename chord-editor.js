@@ -10,22 +10,22 @@ function cBars(r=CS.res){
   let k=0,active=NO_CHORD;
   return grid.map((t,i)=>{
     while(k<events.length&&events[k].t<=t+0.02){active=events[k].c;k++;}
-    const chords=[active],end=grid[i+1]??Infinity;
+    const chords=[active],end=i+1<grid.length?grid[i+1]:Infinity;
     while(k<events.length&&events[k].t<end-0.02){
       active=events[k++].c;
-      if(active!==chords.at(-1))chords.push(active);
+      if(active!==chords[chords.length-1])chords.push(active);
     }
     return {t,chords};
   });
 }
 function cTimeline(){
   const box=$('cTimeline'),events=cEvents(),scroll=box.scrollLeft;
-  box.replaceChildren();
+  box.textContent='';
   for(const [i,event] of events.entries()){
     const button=document.createElement('button'),time=document.createElement('span'),label=document.createElement('b');
     time.textContent=fmtT(event.t);label.textContent=cDisplay(event.c);
     button.className='chordPart';button.append(time,label);
-    const end=events[i+1]?.t??CS.buf.duration;
+    const end=i+1<events.length?events[i+1].t:CS.buf.duration;
     button.style.minWidth=Math.min(220,Math.max(76,(end-event.t)*52))+'px';
     button.title=event.manual?'Đã sửa':event.confidence==null?'Sửa hợp âm':'Độ tin cậy '+event.confidence+'%';
     button.onclick=()=>cOpenEditor(event);
@@ -51,8 +51,8 @@ function cCompare(){
   for(const t of times){
     while(a+1<original.length&&original[a+1].t<=t+0.12)a++;
     while(b+1<instrumental.length&&instrumental[b+1].t<=t+0.12)b++;
-    const one=original[a]?.t<=t+0.12?original[a]:null;
-    const two=instrumental[b]?.t<=t+0.12?instrumental[b]:null;
+    const one=original[a]&&original[a].t<=t+0.12?original[a]:null;
+    const two=instrumental[b]&&instrumental[b].t<=t+0.12?instrumental[b]:null;
     const row=document.createElement('tr');
     const text=(e,r)=>{
       if(!e)return '–';
@@ -64,7 +64,7 @@ function cCompare(){
     }
     frag.append(row);
   }
-  body.replaceChildren(frag);
+  body.textContent='';body.append(frag);
   $('cCompareNote').textContent='Số ô nhịp · Bài gốc '+cBars(leftResult).length+' · Nhạc nền '+cBars(rightResult).length;
 }
 function cChangeSource(source){
@@ -83,8 +83,8 @@ const cOption=(value,label)=>new Option(label,String(value));
 function cEditorSelect(code){
   const {root,quality,bass}=chordParts(code);
   $('cEditRoot').value=code===NO_CHORD?'none':String(root);
-  $('cEditQuality').value=String(quality?.id??0);
-  $('cEditBass').value=bass??'none';
+  $('cEditQuality').value=String(quality?quality.id:0);
+  $('cEditBass').value=bass===null?'none':bass;
   cEditorOptions();
 }
 function cEditorOptions(){
@@ -93,34 +93,36 @@ function cEditorOptions(){
   const root=Number($('cEditRoot').value),quality=CHORD_QUALITIES.find(q=>q.id===Number($('cEditQuality').value));
   const valid=new Set(quality.notes.slice(1).map(n=>chordPc(root+n)));
   for(const option of $('cEditBass').options)option.disabled=option.value!=='none'&&!valid.has(Number(option.value));
-  if($('cEditBass').selectedOptions[0]?.disabled)$('cEditBass').value='none';
+  const selected=$('cEditBass').selectedOptions[0];
+  if(selected&&selected.disabled)$('cEditBass').value='none';
 }
 function cOpenEditor(event=null){
   cEditing=event;cReturnFocus=document.activeElement;
   if(cSrc){cPaused=cTime();cStop();}
   const roots=(cFlat()?FLAT:NAMES);
   const names=NAMES.map((_,i)=>cOption(i,roots[chordPc(i+CS.shift)]));
-  $('cEditRoot').replaceChildren(cOption('none','Không có hợp âm'),...names);
-  $('cEditQuality').replaceChildren(...CHORD_QUALITIES.map(q=>cOption(q.id,q.suffix||'Trưởng')));
-  $('cEditBass').replaceChildren(cOption('none','Theo nốt gốc'),...names.map(o=>o.cloneNode(true)));
-  cEditorSelect(event?.c??0);
+  for(const id of ['cEditRoot','cEditQuality','cEditBass'])$(id).textContent='';
+  $('cEditRoot').append(cOption('none','Không có hợp âm'),...names);
+  $('cEditQuality').append(...CHORD_QUALITIES.map(q=>cOption(q.id,q.suffix||'Trưởng')));
+  $('cEditBass').append(cOption('none','Theo nốt gốc'),...names.map(o=>o.cloneNode(true)));
+  cEditorSelect(event?event.c:0);
   $('cEditTime').max=Math.max(0,CS.buf.duration-0.01).toFixed(2);
-  $('cEditTime').value=Math.min(Number($('cEditTime').max),event?.t??cTime()).toFixed(2);
+  $('cEditTime').value=Math.min(Number($('cEditTime').max),event?event.t:cTime()).toFixed(2);
   $('cEditTitle').textContent=event?'Sửa hợp âm':'Thêm hợp âm';
   $('cEditRemove').hidden=!event;$('cEditMessage').textContent='';
-  const alternatives=$('cAlternatives');alternatives.replaceChildren();
-  for(const candidate of event?.alternatives||[]){
+  const alternatives=$('cAlternatives');alternatives.textContent='';
+  for(const candidate of (event&&event.alternatives)||[]){
     const button=document.createElement('button');button.type='button';
     button.textContent=chordName(candidate.c,CS.shift,cFlat())+' · '+candidate.confidence+'%';
     button.onclick=()=>cEditorSelect(candidate.c);alternatives.append(button);
   }
   $('cAltLabel').hidden=!alternatives.children.length;
-  $('cEditConfidence').textContent=event?.manual?'Đã sửa thủ công':event?.confidence==null?'':'Độ tin cậy ước tính '+event.confidence+'%';
+  $('cEditConfidence').textContent=event&&event.manual?'Đã sửa thủ công':!event||event.confidence==null?'':'Độ tin cậy ước tính '+event.confidence+'%';
   $('cEditor').hidden=false;$('cEditRoot').focus();
 }
 function cCloseEditor(){
   $('cEditor').hidden=true;
-  if(cReturnFocus?.isConnected)cReturnFocus.focus();
+  if(cReturnFocus&&cReturnFocus.isConnected)cReturnFocus.focus();
   cEditing=null;cReturnFocus=null;
 }
 function cEditCommit(remove){
@@ -131,14 +133,14 @@ function cEditCommit(remove){
   const root=$('cEditRoot').value,bass=$('cEditBass').value;
   const q=CHORD_QUALITIES.find(quality=>quality.id===Number($('cEditQuality').value));
   const code=root==='none'?NO_CHORD:chordCode(Number(root),q,bass==='none'?null:Number(bass));
-  const events=cEvents().filter(e=>e.id!==cEditing?.id);
+  const events=cEvents().filter(e=>!cEditing||e.id!==cEditing.id);
   if(!remove&&events.some(e=>Math.abs(e.t-time)<0.01)){
     $('cEditMessage').textContent='Đã có hợp âm ở thời điểm này. Hãy chọn thời điểm khác.';return;
   }
   cRememberLyricEdits();
   if(!remove){
-    const entry={id:cEditing?.id??'m'+Date.now()+'-'+(++cEditCounter),t:time,c:code,manual:true};
-    if(cEditing?.alternatives)entry.alternatives=cEditing.alternatives.filter(e=>e.c!==code);
+    const entry={id:cEditing?cEditing.id:'m'+Date.now()+'-'+(++cEditCounter),t:time,c:code,manual:true};
+    if(cEditing&&cEditing.alternatives)entry.alternatives=cEditing.alternatives.filter(e=>e.c!==code);
     events.push(entry);
   }
   CS.res.events=events.sort((a,b)=>a.t-b.t);

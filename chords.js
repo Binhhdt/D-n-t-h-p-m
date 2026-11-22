@@ -116,8 +116,8 @@ async function advancedChordEvents({fund,bass,frames,fold,frameTime,hop,duration
   const floor=Math.max(0.001,median(energies)*0.033);
   const boundaries=[0];
   for(let j=0;j<beats.length;j++){
-    const a=beats[j],b=beats[j+1]??duration;
-    if(a-boundaries.at(-1)>=0.15&&a<duration-0.14)boundaries.push(a);
+    const a=beats[j],b=j+1<beats.length?beats[j+1]:duration;
+    if(a-boundaries[boundaries.length-1]>=0.15&&a<duration-0.14)boundaries.push(a);
     if(b-a>=0.48&&b<=duration&&b-(a+b)/2>=0.18)boundaries.push((a+b)/2);
   }
   const novelty=new Float32Array(frames);
@@ -144,7 +144,7 @@ async function advancedChordEvents({fund,bass,frames,fold,frameTime,hop,duration
   const scale=(key.minor?[0,2,3,5,7,8,10]:[0,2,4,5,7,9,11]).map(n=>chordPc(n+tonic));
   let beat=0;
   for(let i=0;i<times.length;i++){
-    const start=times[i],end=times[i+1]??duration;
+    const start=times[i],end=i+1<times.length?times[i+1]:duration;
     const c=new Float32Array(12),b=new Float32Array(12),presence=new Float32Array(12);
     const first=Math.max(0,Math.min(frames-1,Math.ceil((start-frameTime)/hop)));
     const last=Math.max(first+1,Math.min(frames,Math.ceil((end-frameTime)/hop)));
@@ -239,7 +239,7 @@ async function advancedChordEvents({fund,bass,frames,fold,frameTime,hop,duration
     const ordered=Array.from(values.keys()).filter(k=>k!==chosen).sort((a,b)=>values[b]-values[a]);
     const confidence=(score,margin)=>Math.round(Math.max(0,Math.min(0.99,0.48+0.32*(score-0.7)+0.8*margin))*100);
     const alternatives=ordered.filter(k=>values[k]>=values[chosen]-0.16).slice(0,3).map(k=>({
-      c:shapes[k]?.code??NO_CHORD,confidence:confidence(values[k],Math.min(0,values[k]-values[chosen]))
+      c:shapes[k]?shapes[k].code:NO_CHORD,confidence:confidence(values[k],Math.min(0,values[k]-values[chosen]))
     }));
     events.push({id:'d'+i,t:times[i],c,confidence:confidence(values[chosen],values[chosen]-values[ordered[0]]),alternatives});
     i=end;
@@ -252,7 +252,7 @@ async function advancedChordEvents({fund,bass,frames,fold,frameTime,hop,duration
     if(simpleCode(before.c)===simpleCode(e.c))continue;
     while(nextBeat<beats.length&&beats[nextBeat]<e.t-0.19)nextBeat++;
     for(let j=nextBeat;j<beats.length&&beats[j]<=e.t+0.36;j++){
-      if(beats[j]<=before.t+0.12||beats[j]>=(after?.t??duration)-0.12)continue;
+      if(beats[j]<=before.t+0.12||beats[j]>=(after?after.t:duration)-0.12)continue;
       if(simpleCode(legacy[j-1])===simpleCode(before.c)&&simpleCode(legacy[j])===simpleCode(e.c)){
         e.t=beats[j];
         break;

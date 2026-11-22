@@ -32,7 +32,7 @@ function stemFile(buf,name){
 }
 function sepAbort(signal){if(signal.aborted)throw new DOMException('Canceled','AbortError');}
 function sepBudget(){
-  if(IS_APP)return (window.AndroidSeparator?.budgetMiB()||0)*1048576;
+  if(IS_APP)return (window.AndroidSeparator?AndroidSeparator.budgetMiB():0)*1048576;
   return (navigator.deviceMemory&&navigator.deviceMemory<=2?125:430)*1048576;
 }
 function sepCheckSize(duration,channels=2,budget=sepBudget()){
@@ -74,11 +74,11 @@ $('sepFile').onchange=async e=>{
 };
 
 async function sepWebModel(signal){
-  if(!window.Worker||!window.crypto?.subtle)throw new Error('Hãy mở ứng dụng trên HTTPS hoặc localhost để chạy mô hình.');
+  if(!window.Worker||!window.crypto||!window.crypto.subtle)throw new Error('Hãy mở ứng dụng trên HTTPS hoặc localhost để chạy mô hình.');
   let cache;
   try{cache=await caches.open(SEP_CACHE);}catch{}
   const url=new URL(SEP_MODEL,location.href).href;
-  let response=await cache?.match(url);
+  let response=cache?await cache.match(url):null;
   sepAbort(signal);
   const download=!response;
   if(download){
@@ -106,7 +106,7 @@ async function sepWebModel(signal){
   }finally{await reader.cancel().catch(()=>{});reader.releaseLock();}
   const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',data)),b=>b.toString(16).padStart(2,'0')).join('');
   if(offset!==SEP_MODEL_BYTES||hash!==SEP_MODEL_HASH){
-    await cache?.delete(url);
+    if(cache)await cache.delete(url);
     throw new Error('Mô hình tải về bị lỗi. Hãy thử lại.');
   }
   if(download&&cache)await cache.put(url,new Response(data)).catch(()=>{});
@@ -138,7 +138,7 @@ async function sepWebRunner(job){
 }
 async function sepAndroidRunner(job){
   const api=window.AndroidSeparator;
-  const id=api?.open();
+  const id=api&&api.open();
   if(!id)throw new Error('Không mở được mô hình. Hãy thử lại sau khi giải phóng bộ nhớ.');
   job.cleanup=()=>api.end(id);
   const wait=async expected=>{
@@ -186,7 +186,7 @@ $('sepStart').onclick=async()=>{
   };
   try{
     const budget=sepBudget();
-    sepCheckSize(SEP.duration??0,2,budget);
+    sepCheckSize(SEP.duration||0,2,budget);
     if(SEP.file.size>Math.min(128*1048576,budget))throw new Error('File quá lớn so với bộ nhớ của thiết bị.');
     sepProgress(0,'Đang giải mã âm thanh');
     const Ctx=window.OfflineAudioContext||window.webkitOfflineAudioContext;
@@ -222,15 +222,17 @@ $('sepStart').onclick=async()=>{
     if(error.name==='AbortError')sepStatus('Đã hủy xử lý.');
     else sepStatus('Không tách được âm thanh. '+(error.message||'Hãy thử file ngắn hơn hoặc chọn định dạng khác.'),true);
   }finally{
-    job.cleanup?.();
+    if(job.cleanup)job.cleanup();
     SEP.job=null;
     $('sepProgress').hidden=true;sepControls();
   }
 };
 $('sepCancel').onclick=()=>{
   if(askDone)askDone(null);
-  SEP.job?.abort();
-  if(SEP.job?.cleanup){SEP.job.cleanup();SEP.job.cleanup=null;}
+  const job=SEP.job;
+  if(!job)return;
+  job.abort();
+  if(job.cleanup){job.cleanup();job.cleanup=null;}
 };
 
 function sepPosition(key){
