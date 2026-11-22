@@ -3,6 +3,8 @@ name: Build APK
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -11,13 +13,23 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Kiểm thử thuật toán
+        run: |
+          node --test tests/*.test.cjs
+          python -m venv "$RUNNER_TEMP/model-test"
+          "$RUNNER_TEMP/model-test/bin/pip" install onnxruntime==1.22.0
+          "$RUNNER_TEMP/model-test/bin/python" tests/model_test.py
+
       - name: Tao du an Android
         run: |
           P=android/app/src/main
           mkdir -p $P/java/com/vocaltool/donothopam $P/assets $P/res/drawable
-          cp index.html $P/assets/index.html
-          # bo ma hoa MP3 (khong tai duoc thi app van chay, chi thieu xuat MP3)
-          curl -fsSL https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js -o $P/assets/lame.min.js || curl -fsSL https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.0/lame.min.js -o $P/assets/lame.min.js || echo "khong tai duoc lamejs"
+          cp index.html fft.js chords.js chord-editor.js separator.js separator-dsp.js $P/assets/
+          cp -r models $P/assets/
+          cp android-src/SeparatorBridge.java $P/java/com/vocaltool/donothopam/
+          sed -i "/<meta charset=\"utf-8\">/a <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'self' file: 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https://api.groq.com; media-src blob:; frame-src 'none'; base-uri 'none'\">" "$P/assets/index.html"
+          # Đóng gói bộ mã hóa MP3 để xuất âm thanh khi thiết bị mất mạng.
+          curl -fsSL https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js -o $P/assets/lame.min.js || curl -fsSL https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.0/lame.min.js -o $P/assets/lame.min.js
           # khoa ky co dinh de cai de len ban cu khong can go app
           echo "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" | base64 -d > android/app.jks
 
@@ -62,8 +74,8 @@ jobs:
                   applicationId "com.vocaltool.donothopam"
                   minSdk 26
                   targetSdk 34
-                  versionCode 1
-                  versionName "1.0"
+                  versionCode 2
+                  versionName "1.1"
               }
               signingConfigs {
                   fixed {
@@ -83,10 +95,16 @@ jobs:
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
+              androidResources {
+                  noCompress += ["onnx"]
+              }
               lint {
                   checkReleaseBuilds false
                   abortOnError false
               }
+          }
+          dependencies {
+              implementation "com.microsoft.onnxruntime:onnxruntime-android:1.22.0"
           }
           EOF
 
@@ -144,6 +162,7 @@ jobs:
           import android.webkit.JavascriptInterface;
           import android.webkit.ValueCallback;
           import android.webkit.WebChromeClient;
+          import android.webkit.WebResourceRequest;
           import android.webkit.WebSettings;
           import android.webkit.WebView;
           import android.webkit.WebViewClient;
@@ -154,7 +173,9 @@ jobs:
           import java.io.OutputStream;
 
           public class MainActivity extends Activity {
+              private static final String APP_URL = "file:///android_asset/index.html";
               private WebView web;
+              private SeparatorBridge separator;
               private ValueCallback<Uri[]> fileCb;
               private File tmp;
               private FileOutputStream tmpOut;
@@ -171,13 +192,20 @@ jobs:
                   WebSettings s = web.getSettings();
                   s.setJavaScriptEnabled(true);
                   s.setDomStorageEnabled(true);
-                  s.setAllowFileAccess(true);
+                  s.setAllowFileAccess(false);
                   s.setAllowFileAccessFromFileURLs(true);
-                  s.setAllowUniversalAccessFromFileURLs(true);
+                  s.setAllowUniversalAccessFromFileURLs(false);
                   s.setMediaPlaybackRequiresUserGesture(false);
                   s.setTextZoom(100);
                   web.addJavascriptInterface(new Bridge(), "Android");
-                  web.setWebViewClient(new WebViewClient());
+                  separator = new SeparatorBridge(this);
+                  web.addJavascriptInterface(separator, "AndroidSeparator");
+                  web.setWebViewClient(new WebViewClient() {
+                      @Override
+                      public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                          return !request.isForMainFrame() || !APP_URL.equals(request.getUrl().toString());
+                      }
+                  });
                   web.setWebChromeClient(new WebChromeClient() {
                       @Override
                       public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> cb, FileChooserParams params) {
@@ -197,7 +225,13 @@ jobs:
                           return true;
                       }
                   });
-                  web.loadUrl("file:///android_asset/index.html");
+                  web.loadUrl(APP_URL);
+              }
+
+              @Override
+              protected void onDestroy() {
+                  if (separator != null) separator.close();
+                  super.onDestroy();
               }
 
               @Override
@@ -224,11 +258,23 @@ jobs:
               public class Bridge {
                   @JavascriptInterface
                   public void saveBegin(String name) {
+                      beginExport(name.replaceAll("[^A-Za-z0-9._-]", "_"));
+                  }
+
+                  @JavascriptInterface
+                  public void saveBeginStem(String name) {
+                      String safe = name.replaceAll("[^\\p{L}\\p{M}\\p{N} ._()-]", "_");
+                      int extension = safe.lastIndexOf('.');
+                      if (extension > 200) safe = safe.substring(0, 190) + safe.substring(extension);
+                      beginExport(safe);
+                  }
+
+                  private void beginExport(String name) {
                       try {
                           if (tmpOut != null) {
                               tmpOut.close();
                           }
-                          tmpName = name.replaceAll("[^A-Za-z0-9._-]", "_");
+                          tmpName = name;
                           tmp = new File(getCacheDir(), "export.tmp");
                           tmpOut = new FileOutputStream(tmp);
                       } catch (Exception e) {
