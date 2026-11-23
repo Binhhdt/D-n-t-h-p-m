@@ -69,6 +69,14 @@ progress{display:block;width:100%;height:6px;margin-top:8px;accent-color:var(--n
 #hSet{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:18px}
 #hSet input,#hSet select{font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:8px;min-height:44px;padding:0 12px}
 #hSet input{display:block;width:100%;margin-top:8px}
+#hAppInfo{margin:0}
+#hLyricsSettings:not([hidden])+#hAppInfo{margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
+#hAppInfo dl{margin:8px 0 0;font-size:.9rem}
+#hAppInfo dl div{display:flex;justify-content:space-between;gap:12px;padding:3px 0}
+#hAppInfo dl div[hidden]{display:none}
+#hAppInfo dt,#hVersion{color:var(--muted)}
+#hAppInfo dd{margin:0;text-align:right}
+#hVersion{font-size:.85rem;text-align:center;margin:16px 0 0}
 #home h1{font-size:1.9rem;margin-bottom:18px}
 .hCard{display:flex;flex-direction:column;gap:12px;width:100%;text-align:left;padding:16px;margin-bottom:16px;border-radius:20px;border:1px solid var(--line);background:var(--surface)}
 .hCard strong{font-size:1.25rem;font-weight:700}
@@ -219,6 +227,7 @@ div.peak{cursor:default}
     </button>
   </div>
   <div id="hSet" hidden>
+    <div id="hLyricsSettings" hidden>
     <b>Cài đặt nhận dạng lời</b>
     <p class="hint">Dùng cho nút "Tự động lấy lời từ bài hát". Mở console.groq.com, đăng nhập, vào API Keys, tạo một khóa rồi dán vào đây.</p>
     <input id="hKey" type="password" autocomplete="off" placeholder="Dán khóa Groq (bắt đầu bằng gsk_)" aria-label="Khóa Groq">
@@ -227,6 +236,16 @@ div.peak{cursor:default}
     </label>
     <div class="actions"><button class="btn primary" id="hSave">Lưu cài đặt</button></div>
     <p class="hint" id="hMsg" role="status"></p>
+    </div>
+    <section id="hAppInfo" aria-labelledby="hAppInfoTitle">
+      <b id="hAppInfoTitle">Thông tin ứng dụng</b>
+      <dl>
+        <div><dt>Tên ứng dụng</dt><dd id="hAppName"></dd></div>
+        <div><dt>Phiên bản</dt><dd id="hAppVersion"></dd></div>
+        <div><dt>Version Code</dt><dd id="hVersionCode"></dd></div>
+        <div id="hBuildRow" hidden><dt>Ngày build</dt><dd id="hBuildDate"></dd></div>
+      </dl>
+    </section>
   </div>
   <h1>Hôm nay bạn muốn dò gì?</h1>
   <div id="recent" hidden><h2>Làm gần đây</h2><div id="recentList"></div></div>
@@ -262,12 +281,13 @@ div.peak{cursor:default}
     <span class="go"><span class="pill p">Mở công cụ tách</span></span>
   </button>
   <p class="hFoot">Dò nốt, sửa nốt, dò hợp âm và đổi tone beat chạy ngay trên máy. Tự lấy lời cần có mạng.</p>
+  <p id="hVersion"></p>
  </section>
 
  <section id="separator" hidden>
   <button class="back" data-back>‹ Trang đầu</button>
   <h1>Tách giọng hát &amp; nhạc nền</h1>
-  <p class="lead">Open-Unmix HQ xử lý âm thanh trên thiết bị. Bài hát được giữ trên máy.</p>
+  <p class="lead">UVR MDX-Net xử lý âm thanh trên thiết bị. Bài hát được giữ trên máy.</p>
   <div class="actions">
     <button class="btn" id="sepPick">Chọn file âm thanh</button>
     <input id="sepFile" type="file" accept="audio/*,.mp3,.wav,.m4a,.flac" hidden>
@@ -571,6 +591,7 @@ div.peak{cursor:default}
  </section>
 </main>
 <div id="ask" hidden><div class="askBox" role="dialog" aria-modal="true" aria-labelledby="askT"><b id="askT"></b><p id="askP"></p><div id="askB"></div></div></div>
+<script src="app-version.js"></script>
 <script src="fft.js"></script>
 <script src="chords.js"></script>
 <script src="separator-dsp.js"></script>
@@ -2394,14 +2415,33 @@ $('lyUpd').onclick=()=>{
   lyStat(added?'Đã cập nhật lời. Có '+added+' dòng thêm mới, app tạm đặt chúng vào giữa câu trước và câu sau: chạm vào mốc thời gian đầu dòng đó, bấm Phát rồi bấm "Câu này bắt đầu hát" để đặt lại cho đúng.':'Đã cập nhật lời.');
 };
 
+if(typeof APP_VERSION!=='undefined'){
+  $('hAppName').textContent=APP_VERSION.name;
+  $('hAppVersion').textContent=APP_VERSION.versionName;
+  $('hVersionCode').textContent=APP_VERSION.versionCode;
+  $('hVersion').textContent=APP_VERSION.name+' · Phiên bản '+APP_VERSION.versionName;
+  if(APP_VERSION.buildDate){
+    const date=new Date(APP_VERSION.buildDate);
+    $('hBuildDate').textContent=date.toLocaleDateString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'});
+    $('hBuildRow').hidden=false;
+  }
+  $('hGear').hidden=false;
+  $('hGear').onclick=()=>{
+    const opened=$('hSet').hidden;
+    $('hSet').hidden=!opened;
+    $('hGear').setAttribute('aria-expanded',String(opened));
+    $('hMsg').textContent='';
+  };
+}
+
 /* ---- khác biệt giữa app và trang web ---- */
 if(IS_APP){
+  $('hLyricsSettings').hidden=false;
   $('whBox').hidden=false;$('lyAI').hidden=true;$('aiHint').hidden=true;
   $('lyLead').textContent='Dán lời bài hát vào ô dưới, mỗi câu hát một dòng, để trống một dòng giữa các đoạn. Rồi bấm "Tự đánh dấu từng câu", bấm Phát và đánh dấu lúc mỗi câu bắt đầu hát.';
   $('whKey').value=store.get('groqKey');$('whLang').value=store.get('whLang')||'vi';
   /* cài đặt ở trang đầu: cùng một khóa và ngôn ngữ với phần cài đặt trong màn hình dò hợp âm */
-  $('hGear').hidden=false;$('hKey').value=store.get('groqKey');$('hLang').value=store.get('whLang')||'vi';
-  $('hGear').onclick=()=>{const o=$('hSet').hidden;$('hSet').hidden=!o;$('hGear').setAttribute('aria-expanded',String(o));$('hMsg').textContent='';};
+  $('hKey').value=store.get('groqKey');$('hLang').value=store.get('whLang')||'vi';
   $('hSave').onclick=()=>{
     store.set('groqKey',$('hKey').value.trim());store.set('whLang',$('hLang').value);
     $('whKey').value=$('hKey').value.trim();$('whLang').value=$('hLang').value;

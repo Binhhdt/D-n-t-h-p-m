@@ -75,12 +75,14 @@ test('YIN still measures the reference A4',async()=>{
   const a=Array.from(notes).filter(Number.isFinite);
   assert.ok(a.length>50&&Math.abs(median(a)-69)<0.05);
 });
-test('STFT overlap-add preserves mono/stereo length and samples with a unity mask',async()=>{
+test('STFT overlap-add preserves mono/stereo length and samples with an unchanged complex spectrum',async()=>{
   for(const channels of [1,2]){
     const n=channels===1?1193:SEP_LENGTH+SEP_OVERLAP+23;
     const input=Array.from({length:channels},(_,c)=>Float32Array.from({length:n},(_,i)=>0.3*Math.sin(i*(0.037+c*0.02))));
     const output=input.map(()=>new Float32Array(n)),progress=[];
-    await separateAudio(input,output,mag=>mag,async()=>{},p=>progress.push(p));
+    await separateAudio(input,output,
+      spectrum=>structuredClone(spectrum,{transfer:[spectrum.buffer]}),
+      async()=>{},p=>progress.push(p));
     for(let c=0;c<channels;c++){
       let error=0;
       for(let i=0;i<n;i++)error=Math.max(error,Math.abs(input[c][i]-output[c][i]));
@@ -95,8 +97,8 @@ test('separation stops before inference when canceled during preprocessing',asyn
   const canceled=new Error('canceled');
   await assert.rejects(separateAudio(input,output,()=>assert.fail('inference started'),async()=>{throw canceled;},()=>{}),canceled);
 });
-test('packaged UMX-HQ model matches the web integrity metadata',()=>{
-  const model=fs.readFileSync('models/umxhq-vocals.onnx');
+test('packaged UVR MDX-Net model matches the web integrity metadata',()=>{
+  const model=fs.readFileSync('models/uvr-mdx-inst-main-96.onnx');
   const app=fs.readFileSync('separator.js','utf8');
   assert.ok(app.includes('SEP_MODEL_BYTES='+model.length));
   assert.ok(app.includes(crypto.createHash('sha256').update(model).digest('hex')));

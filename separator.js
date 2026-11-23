@@ -1,7 +1,7 @@
-const SEP_MODEL='models/umxhq-vocals.onnx';
-const SEP_MODEL_BYTES=35640191;
-const SEP_MODEL_HASH='1b42b6574b0856a5105dfcdb4e8ab3b1d24efb5ef5301a7f5eb541b89e4cd0b4';
-const SEP_CACHE='umxhq-vocals-'+SEP_MODEL_HASH.slice(0,12);
+const SEP_MODEL='models/uvr-mdx-inst-main-96.onnx';
+const SEP_MODEL_BYTES=52787031;
+const SEP_MODEL_HASH='022c3c149be3a2203ff352b331f4a443fab12b2d95ccbe7aad021a1fd2637c46';
+const SEP_CACHE='uvr-mdx-inst-main-'+SEP_MODEL_HASH.slice(0,12);
 const SEP_TRANSFER=49152;
 const SEP={file:null,duration:null,stems:null,original:null,job:null,exporting:false,source:null,playing:null,frame:0,
   position:{V:0,I:0}};
@@ -33,7 +33,8 @@ function stemFile(buf,name){
 function sepAbort(signal){if(signal.aborted)throw new DOMException('Canceled','AbortError');}
 function sepBudget(){
   if(IS_APP)return (window.AndroidSeparator?AndroidSeparator.budgetMiB():0)*1048576;
-  return (navigator.deviceMemory&&navigator.deviceMemory<=2?125:430)*1048576;
+  const memory=navigator.deviceMemory;
+  return (memory&&memory<=2?65:memory&&memory<=4?230:430)*1048576;
 }
 function sepCheckSize(duration,channels=2,budget=sepBudget()){
   if(budget<20*1048576)throw new Error('Thiết bị thiếu bộ nhớ để chạy mô hình. Hãy đóng ứng dụng khác rồi thử lại.');
@@ -83,13 +84,13 @@ async function sepWebModel(signal){
   const download=!response;
   if(download){
     const consent=await ask('Tải mô hình tách giọng hát?',
-      'Mô hình Open-Unmix HQ tải một lần, dung lượng 35,6 MB. Trình duyệt còn tải ONNX Runtime khi cần.',
+      'Mô hình UVR MDX-Net tải một lần, dung lượng 52,8 MB. Trình duyệt còn tải ONNX Runtime khi cần.',
       [['download','Tải mô hình'],['cancel','Hủy']]);
     sepAbort(signal);
     if(consent!=='download')throw new DOMException('Canceled','AbortError');
     sepProgress(0,'Đang tải mô hình');
     response=await fetch(url,{signal});
-    if(!response.ok||!response.body)throw new Error('Không tải được mô hình Open-Unmix HQ.');
+    if(!response.ok||!response.body)throw new Error('Không tải được mô hình UVR MDX-Net.');
   }
   const data=new Uint8Array(SEP_MODEL_BYTES);
   const reader=response.body.getReader();
@@ -134,7 +135,7 @@ async function sepWebRunner(job){
     });
   }
   await exchange({model},[model]);
-  return async (magnitude,frames)=>(await exchange({magnitude,frames},[magnitude.buffer])).vocals;
+  return async spectrum=>(await exchange({spectrum},[spectrum.buffer])).backing;
 }
 async function sepAndroidRunner(job){
   const api=window.AndroidSeparator;
@@ -152,9 +153,9 @@ async function sepAndroidRunner(job){
   };
   sepProgress(0,'Đang mở mô hình');
   await wait('ready');
-  return async (magnitude,frames)=>{
-    const bytes=new Uint8Array(magnitude.buffer);
-    if(!api.begin(id,frames))throw new Error('Không cấp được bộ nhớ cho mô hình.');
+  return async spectrum=>{
+    const bytes=new Uint8Array(spectrum.buffer);
+    if(!api.begin(id,SEP_FRAMES))throw new Error('Không cấp được bộ nhớ cho mô hình.');
     for(let off=0;off<bytes.length;off+=SEP_TRANSFER){
       const piece=bytes.subarray(off,off+SEP_TRANSFER);
       if(!api.write(id,encodeAudioBytes(piece)))throw new Error('Không chuyển được dữ liệu tới mô hình.');
@@ -169,7 +170,7 @@ async function sepAndroidRunner(job){
       for(let i=0;i<n;i++)bytes[off+i]=decoded.charCodeAt(i);
       if(off%(SEP_TRANSFER*4)===0){await sleep0();sepAbort(job.signal);}
     }
-    return magnitude;
+    return spectrum;
   };
 }
 
@@ -203,15 +204,16 @@ $('sepStart').onclick=async()=>{
     const infer=await (IS_APP?sepAndroidRunner(job):sepWebRunner(job));
     sepAbort(job.signal);
     const make=()=>new AudioBuffer({length:original.length,sampleRate:R,numberOfChannels:original.numberOfChannels});
-    const vocal=make(),input=sepChannelData(original),voice=sepChannelData(vocal);
+    const instrumental=make(),input=sepChannelData(original),backing=sepChannelData(instrumental);
     sepProgress(0,'Đang tách âm thanh');
-    await separateAudio(input,voice,infer,check,p=>sepProgress(p*0.99,'Đang tách âm thanh'));
-    const instrumental=make();
+    await separateAudio(input,backing,infer,check,p=>sepProgress(p*0.99,'Đang tách âm thanh'));
+    const vocal=make();
+    // Remove the model's complex accompaniment estimate from the original mix.
     for(let c=0;c<input.length;c++){
-      const backing=instrumental.getChannelData(c);
-      for(let start=0;start<backing.length;start+=65536){
-        const end=Math.min(backing.length,start+65536);
-        for(let i=start;i<end;i++)backing[i]=input[c][i]-voice[c][i];
+      const voice=vocal.getChannelData(c);
+      for(let start=0;start<voice.length;start+=65536){
+        const end=Math.min(voice.length,start+65536);
+        for(let i=start;i<end;i++)voice[i]=input[c][i]-backing[c][i];
         await check();
       }
     }

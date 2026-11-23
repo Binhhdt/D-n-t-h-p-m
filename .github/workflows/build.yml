@@ -28,6 +28,7 @@ jobs:
           P=android/app/src/main
           mkdir -p $P/java/com/vocaltool/donothopam $P/assets $P/res/drawable
           cp index.html fft.js chords.js chord-editor.js separator.js separator-dsp.js $P/assets/
+          node tools/package-version.cjs android/app/version.properties "$P/assets/app-version.js"
           cp -r models $P/assets/
           cp android-src/SeparatorBridge.java $P/java/com/vocaltool/donothopam/
           sed -i "/<meta charset=\"utf-8\">/a <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'self' file: 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https://api.groq.com; media-src blob:; frame-src 'none'; base-uri 'none'\">" "$P/assets/index.html"
@@ -70,6 +71,9 @@ jobs:
           plugins {
               id "com.android.application"
           }
+          def appVersion = new Properties()
+          file("version.properties").withInputStream { appVersion.load(it) }
+
           android {
               namespace "com.vocaltool.donothopam"
               compileSdk 34
@@ -77,8 +81,8 @@ jobs:
                   applicationId "com.vocaltool.donothopam"
                   minSdk 26
                   targetSdk 34
-                  versionCode 2
-                  versionName "1.1"
+                  versionCode appVersion.getProperty("versionCode").toInteger()
+                  versionName appVersion.getProperty("versionName")
               }
               signingConfigs {
                   fixed {
@@ -365,6 +369,8 @@ jobs:
           cd android
           ../gradle-8.7/bin/gradle :app:assembleRelease --no-daemon --stacktrace
           cp app/build/outputs/apk/release/app-release.apk ../do-not-hop-am.apk
+          cd ..
+          node tools/verify-apk-version.cjs do-not-hop-am.apk "$ANDROID_HOME/build-tools/34.0.0/aapt"
 
       - uses: actions/upload-artifact@v7
         with:

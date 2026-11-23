@@ -20,9 +20,9 @@ import java.util.concurrent.Executors;
 
 /** Only available to the packaged WebView page. Accepts bounded FFT tensors. */
 public final class SeparatorBridge {
-    private static final String MODEL = "models/umxhq-vocals.onnx";
-    private static final int MAX_FRAMES = 192;
-    private static final int BINS = 2049;
+    private static final String MODEL = "models/uvr-mdx-inst-main-96.onnx";
+    private static final int FRAMES = 96;
+    private static final int BINS = 2048;
     private static final int TRANSFER = 49152;
     private final Context app;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
@@ -36,7 +36,6 @@ public final class SeparatorBridge {
         OrtSession.RunOptions run;
         ByteBuffer input;
         byte[] output;
-        int frames;
         String state = "loading";
 
         Job(int id) {
@@ -56,7 +55,8 @@ public final class SeparatorBridge {
         manager.getMemoryInfo(memory);
         if (memory.lowMemory) return 0;
         // Leave room for ORT, WebView, and the rest of the app and system.
-        return (int) Math.max(0, Math.min(430, (memory.availMem - memory.threshold) / (3 * 1048576L) - 96));
+        long availableMiB = (memory.availMem - memory.threshold) / 1048576L;
+        return (int) Math.max(0, Math.min(430, (availableMiB - 400) / 2));
     }
 
     @JavascriptInterface
@@ -79,6 +79,9 @@ public final class SeparatorBridge {
                     FileChannel.MapMode.READ_ONLY, asset.getStartOffset(), asset.getLength());
             options.setIntraOpNumThreads(Math.min(2, Runtime.getRuntime().availableProcessors()));
             options.setInterOpNumThreads(1);
+            options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.BASIC_OPT);
+            options.setCPUArenaAllocator(false);
+            options.setMemoryPatternOptimization(false);
             job.session = OrtEnvironment.getEnvironment().createSession(model, options);
             synchronized (this) {
                 if (active == job) job.state = "ready";
@@ -95,12 +98,11 @@ public final class SeparatorBridge {
 
     @JavascriptInterface
     public synchronized boolean begin(int id, int frames) {
-        if (active == null || active.id != id || frames < 1 || frames > MAX_FRAMES ||
+        if (active == null || active.id != id || frames != FRAMES ||
                 !(active.state.equals("ready") || active.state.equals("done"))) return false;
         try {
             active.output = null;
-            active.frames = frames;
-            active.input = ByteBuffer.allocateDirect(frames * 2 * BINS * Float.BYTES)
+            active.input = ByteBuffer.allocateDirect(4 * BINS * FRAMES * Float.BYTES)
                     .order(ByteOrder.LITTLE_ENDIAN);
             active.state = "input";
             return true;
@@ -147,8 +149,8 @@ public final class SeparatorBridge {
             }
             byte[] encoded;
             try (OnnxTensor tensor = OnnxTensor.createTensor(OrtEnvironment.getEnvironment(),
-                         input, new long[]{job.frames, 2, BINS});
-                 OrtSession.Result result = job.session.run(Collections.singletonMap("magnitude", tensor), run)) {
+                         input, new long[]{1, 4, BINS, FRAMES});
+                 OrtSession.Result result = job.session.run(Collections.singletonMap("input", tensor), run)) {
                 FloatBuffer values = ((OnnxTensor) result.get(0)).getFloatBuffer();
                 encoded = new byte[values.remaining() * Float.BYTES];
                 ByteBuffer.wrap(encoded).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer().put(values);

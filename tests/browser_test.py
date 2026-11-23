@@ -13,6 +13,14 @@ with sync_playwright() as playwright:
     errors = []
     page.on("pageerror", lambda error: errors.append(str(error)))
     page.goto(sys.argv[1])
+    version = page.evaluate("APP_VERSION")
+    assert page.locator("#hVersion").inner_text() == version["name"] + " · Phiên bản " + version["versionName"]
+    page.get_by_role("button", name="Cài đặt").click()
+    assert page.locator("#hAppVersion").inner_text() == version["versionName"]
+    assert page.locator("#hVersionCode").inner_text() == str(version["versionCode"])
+    assert page.locator("#hBuildRow").is_visible() == bool(version.get("buildDate"))
+    assert page.locator("#hLyricsSettings").is_visible() == page.evaluate("IS_APP")
+    page.get_by_role("button", name="Cài đặt").click()
     page.evaluate("""async () => {
       const x=makeSong('bolero',78,[21,14,104,21],8),res=await analyzeSong(x);
       const t=res.beats[0];
@@ -60,14 +68,16 @@ with sync_playwright() as playwright:
     page.locator("#demo").click()
     page.locator("#result").wait_for()
     page.locator("#fixBtn").click()
-    page.wait_for_function("S.fixed&&document.querySelector('#fixProg').hidden")
+    page.locator("#fixProg").wait_for(state="hidden")
+    assert page.evaluate("!!S.fixed")
     assert page.evaluate("S.fixed.buf.length===S.orig.buf.length")
     page.evaluate("show('tone')")
     page.locator("#tDemo").click()
     page.locator("#tResult").wait_for()
     page.locator("#tUp").click()
     page.locator("#tApply").click()
-    page.wait_for_function("TS.out&&document.querySelector('#tProg').hidden")
+    page.locator("#tProg").wait_for(state="hidden")
+    assert page.evaluate("!!TS.out")
     assert page.evaluate("TS.out.length===TS.buf.length")
     assert not errors, errors
     print("Legacy project, chord editing and persistence, PSOLA, and WSOLA passed")
