@@ -69,6 +69,14 @@ progress{display:block;width:100%;height:6px;margin-top:8px;accent-color:var(--n
 #hSet{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:18px}
 #hSet input,#hSet select{font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:8px;min-height:44px;padding:0 12px}
 #hSet input{display:block;width:100%;margin-top:8px}
+#hAppInfo{margin:0}
+#hLyricsSettings:not([hidden])+#hAppInfo{margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
+#hAppInfo dl{margin:8px 0 0;font-size:.9rem}
+#hAppInfo dl div{display:flex;justify-content:space-between;gap:12px;padding:3px 0}
+#hAppInfo dl div[hidden]{display:none}
+#hAppInfo dt,#hVersion{color:var(--muted)}
+#hAppInfo dd{margin:0;text-align:right}
+#hVersion{font-size:.85rem;text-align:center;margin:16px 0 0}
 #home h1{font-size:1.9rem;margin-bottom:18px}
 .hCard{display:flex;flex-direction:column;gap:12px;width:100%;text-align:left;padding:16px;margin-bottom:16px;border-radius:20px;border:1px solid var(--line);background:var(--surface)}
 .hCard strong{font-size:1.25rem;font-weight:700}
@@ -187,6 +195,26 @@ div.peak{cursor:default}
 .row .x{color:var(--muted)}
 .row.hi .n{color:var(--high)} .row.lo .n{color:var(--low)}
 @media (max-width:380px){.tone .key{font-size:2.4rem}.peak .name{font-size:2.4rem}h1{font-size:1.7rem}}
+#sepName,#sepStatus{margin-top:12px;overflow-wrap:anywhere}
+#sepStatus.err{color:var(--high)}
+.stem{margin-top:20px;padding:0 0 16px;border-bottom:1px solid var(--line)}
+.stem h2{margin-top:0}
+.stem input[type="range"]{display:block;width:100%;margin:10px 0;accent-color:var(--note)}
+#cTimeline{display:flex;gap:6px;overflow-x:auto;padding:5px 2px 12px}
+.chordPart{display:grid;text-align:left;background:var(--surface);border:1px solid var(--line);
+  border-radius:6px;min-height:52px;padding:4px 9px}
+.chordPart span{font-size:.75rem;color:var(--muted)}
+#cEditor{margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+#cEditor h3{margin:0 0 10px}
+#cEditor label{display:inline-flex;flex-direction:column;margin:0 8px 8px 0;font-size:.9rem}
+#cEditor select,#cEditor input,#cSource{font:inherit;color:var(--ink);background:var(--paper);
+  border:1px solid var(--line);border-radius:6px;min-height:42px;padding:0 8px}
+#cEditTime{width:8ch}
+#cAlternatives button{min-height:42px;padding:0 8px;color:var(--note);margin-right:5px;border:1px solid var(--line);border-radius:6px}
+#cComparison{margin:12px 0}
+#cComparison summary{cursor:pointer;min-height:36px}
+#cCompareTable{width:100%;margin-top:8px;text-align:left;border-collapse:collapse}
+#cCompareTable td,#cCompareTable th{padding:5px;border-bottom:1px solid var(--line)}
 </style>
 </head>
 <body>
@@ -199,6 +227,7 @@ div.peak{cursor:default}
     </button>
   </div>
   <div id="hSet" hidden>
+    <div id="hLyricsSettings" hidden>
     <b>Cài đặt nhận dạng lời</b>
     <p class="hint">Dùng cho nút "Tự động lấy lời từ bài hát". Mở console.groq.com, đăng nhập, vào API Keys, tạo một khóa rồi dán vào đây.</p>
     <input id="hKey" type="password" autocomplete="off" placeholder="Dán khóa Groq (bắt đầu bằng gsk_)" aria-label="Khóa Groq">
@@ -207,6 +236,16 @@ div.peak{cursor:default}
     </label>
     <div class="actions"><button class="btn primary" id="hSave">Lưu cài đặt</button></div>
     <p class="hint" id="hMsg" role="status"></p>
+    </div>
+    <section id="hAppInfo" aria-labelledby="hAppInfoTitle">
+      <b id="hAppInfoTitle">Thông tin ứng dụng</b>
+      <dl>
+        <div><dt>Tên ứng dụng</dt><dd id="hAppName"></dd></div>
+        <div><dt>Phiên bản</dt><dd id="hAppVersion"></dd></div>
+        <div><dt>Version Code</dt><dd id="hVersionCode"></dd></div>
+        <div id="hBuildRow" hidden><dt>Ngày build</dt><dd id="hBuildDate"></dd></div>
+      </dl>
+    </section>
   </div>
   <h1>Hôm nay bạn muốn dò gì?</h1>
   <div id="recent" hidden><h2>Làm gần đây</h2><div id="recentList"></div></div>
@@ -236,7 +275,53 @@ div.peak{cursor:default}
     <span class="go"><span class="pill a">Chọn file beat</span>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg></span>
   </button>
-  <p class="hFoot">Dò nốt, sửa nốt, dò hợp âm và đổi tone beat chạy ngay trên máy. Chỉ phần tự lấy lời cần có mạng.</p>
+  <button class="hCard" id="goSeparator">
+    <strong>Tách giọng hát &amp; nhạc nền</strong>
+    <span class="d">Dùng AI để tách giọng hát và nhạc nền thành hai bản riêng.</span>
+    <span class="go"><span class="pill p">Mở công cụ tách</span></span>
+  </button>
+  <p class="hFoot">Dò nốt, sửa nốt, dò hợp âm và đổi tone beat chạy ngay trên máy. Tự lấy lời cần có mạng.</p>
+  <p id="hVersion"></p>
+ </section>
+
+ <section id="separator" hidden>
+  <button class="back" data-back>‹ Trang đầu</button>
+  <h1>Tách giọng hát &amp; nhạc nền</h1>
+  <p class="lead">UVR MDX-Net xử lý âm thanh trên thiết bị. Bài hát được giữ trên máy.</p>
+  <div class="actions">
+    <button class="btn" id="sepPick">Chọn file âm thanh</button>
+    <input id="sepFile" type="file" accept="audio/*,.mp3,.wav,.m4a,.flac" hidden>
+    <button class="btn primary" id="sepStart" disabled>Bắt đầu tách</button>
+    <button class="btn" id="sepCancel" hidden>Hủy xử lý</button>
+  </div>
+  <p id="sepName"></p>
+  <p id="sepStatus" role="status"></p>
+  <progress id="sepProgress" max="1" value="0" aria-label="Tiến độ tách" hidden></progress>
+  <div id="sepResults" hidden>
+    <section class="stem" aria-label="Vocal">
+      <h2>Vocal · Giọng hát</h2>
+      <button class="btn primary" id="sepPlayV">▶ Phát vocal</button>
+      <input type="range" id="sepSeekV" min="0" step="0.05" value="0" aria-label="Vị trí phát vocal">
+      <span class="hint" id="sepClockV"></span>
+      <div class="actions">
+        <button class="btn" data-export-stem="V,wav">Xuất WAV</button>
+        <button class="btn" data-export-stem="V,mp3">Xuất MP3</button>
+        <button class="btn" id="sepToVocal">Dò nốt giọng hát</button>
+      </div>
+    </section>
+    <section class="stem" aria-label="Instrumental">
+      <h2>Instrumental · Nhạc nền</h2>
+      <button class="btn primary" id="sepPlayI">▶ Phát nhạc nền</button>
+      <input type="range" id="sepSeekI" min="0" step="0.05" value="0" aria-label="Vị trí phát nhạc nền">
+      <span class="hint" id="sepClockI"></span>
+      <div class="actions">
+        <button class="btn" data-export-stem="I,wav">Xuất WAV</button>
+        <button class="btn" data-export-stem="I,mp3">Xuất MP3</button>
+        <button class="btn" id="sepToChords">Dò và so sánh hợp âm</button>
+        <button class="btn" id="sepToTone">Nâng/hạ tone beat</button>
+      </div>
+    </section>
+  </div>
  </section>
 
  <section id="tone" hidden>
@@ -328,13 +413,52 @@ div.peak{cursor:default}
     <h2>Các hợp âm trong bài</h2>
     <div class="chips" id="cChips"></div>
 
-    <h2>Hợp âm theo từng ô nhịp</h2>
+    <h2>Dòng thời gian và ô nhịp</h2>
     <div class="player">
       <button class="btn primary" id="cPlay">▶ Phát bài hát</button>
       <button class="btn" id="cRew">Về đầu</button>
       <span id="cClock" style="font-variant-numeric:tabular-nums;color:var(--muted);font-size:.9rem"></span>
     </div>
+    <details id="cComparison" hidden>
+      <summary>So sánh bài gốc và nhạc nền</summary>
+      <label>Dùng hợp âm từ <select id="cSource">
+        <option value="instrumental">Nhạc nền</option><option value="original">Bài gốc</option>
+      </select></label>
+      <p class="hint" id="cCompareNote"></p>
+      <table id="cCompareTable">
+        <thead><tr><th scope="col">Thời điểm</th><th scope="col">Bài gốc</th><th scope="col">Nhạc nền</th></tr></thead>
+        <tbody id="cCompareRows"></tbody>
+      </table>
+    </details>
+    <label><input type="checkbox" id="cSimple"> Hiện hợp âm đơn giản</label>
+    <div id="cTimeline" aria-label="Dòng thời gian hợp âm"></div>
+    <button class="btn" id="cAddChord">Thêm hợp âm</button>
+    <div id="cEditor" role="region" aria-labelledby="cEditTitle" hidden>
+      <h3 id="cEditTitle"></h3>
+      <p id="cEditConfidence" class="hint"></p>
+      <label>Nốt gốc<select id="cEditRoot"></select></label>
+      <label>Loại<select id="cEditQuality"></select></label>
+      <label>Nốt bass<select id="cEditBass"></select></label>
+      <label>Giây bắt đầu<input id="cEditTime" type="number" min="0" step="0.01" inputmode="decimal"></label>
+      <div class="tools">
+        <button data-chord-nudge="-0.1">← 0,1 giây</button><button data-chord-nudge="0.1">0,1 giây →</button>
+      </div>
+      <p id="cAltLabel" class="hint">Hợp âm thay thế</p><div id="cAlternatives"></div>
+      <p id="cEditMessage" role="status"></p>
+      <div class="actions">
+        <button class="btn primary" id="cEditSave">Lưu hợp âm</button>
+        <button class="btn" id="cEditRemove">Xóa hợp âm</button>
+        <button class="btn" id="cEditCancel">Hủy</button>
+      </div>
+    </div>
+    <h3>Hợp âm theo từng ô nhịp</h3>
     <div class="chart" id="cChart"></div>
+    <div class="actions">
+      <button class="btn" id="cChartCopy">Sao chép hợp âm</button>
+      <button class="btn" id="cChartSave">Lưu hợp âm .txt</button>
+    </div>
+    <p id="cChartStatus" role="status"></p>
+    <textarea id="cChartText" rows="5" readonly hidden aria-label="Hợp âm đã sao chép"></textarea>
     <p class="hint" id="cNote"></p>
 
     <h2>Lời và hợp âm</h2>
@@ -467,6 +591,10 @@ div.peak{cursor:default}
  </section>
 </main>
 <div id="ask" hidden><div class="askBox" role="dialog" aria-modal="true" aria-labelledby="askT"><b id="askT"></b><p id="askP"></p><div id="askB"></div></div></div>
+<script src="app-version.js"></script>
+<script src="fft.js"></script>
+<script src="chords.js"></script>
+<script src="separator-dsp.js"></script>
 <script>
 const R=44100;
 const SR=22050,HOP=441,W=600,FMIN=70,FMAX=1500;
@@ -777,23 +905,6 @@ function zipOne(name,data){
 }
 
 /* ================= Dò hợp âm bài hát ================= */
-function makeFFT(n){
-  const rev=new Uint32Array(n),co=new Float32Array(n/2),si=new Float32Array(n/2);
-  let bits=0;while((1<<bits)<n)bits++;
-  for(let i=0;i<n;i++){let r=0;for(let b=0;b<bits;b++)if(i&(1<<b))r|=1<<(bits-1-b);rev[i]=r;}
-  for(let k=0;k<n/2;k++){co[k]=Math.cos(2*Math.PI*k/n);si[k]=Math.sin(2*Math.PI*k/n);}
-  return function(re,im){
-    for(let i=0;i<n;i++){const j=rev[i];if(j>i){let t=re[i];re[i]=re[j];re[j]=t;t=im[i];im[i]=im[j];im[j]=t;}}
-    for(let size=2;size<=n;size<<=1){
-      const half=size>>1,step=n/size;
-      for(let i=0;i<n;i+=size)for(let j=0,k=0;j<half;j++,k+=step){
-        const a=i+j,b=a+half,tr=re[b]*co[k]+im[b]*si[k],ti=im[b]*co[k]-re[b]*si[k];
-        re[b]=re[a]-tr;im[b]=im[a]-ti;re[a]+=tr;im[a]+=ti;
-      }
-    }
-  };
-}
-const hann=n=>{const w=new Float32Array(n);for(let i=0;i<n;i++)w[i]=0.5-0.5*Math.cos(2*Math.PI*i/n);return w;};
 
 /* Mẫu tiết tấu của từng điệu trên lưới 16 nốt móc kép một ô nhịp 4/4 (dải trầm: bass + trống cái) và khoảng tempo thường gặp */
 const STYLES=[
@@ -809,7 +920,7 @@ const STYLES=[
   {name:'Twist',low:[0,4,8,12],bpm:[140,200]}
 ];
 
-async function analyzeSong(x,onProg){
+async function analyzeSong(x,onProg,advanced=false){
   const sr=SR,tick=async p=>{if(onProg)onProg(p);await sleep0();};
   /* ---- 1. Đường bao điểm gõ (toàn dải và dải trầm) ---- */
   const n1=1024,h1=512,fps=sr/h1,nF=Math.max(0,Math.floor((x.length-n1)/h1)+1);
@@ -862,7 +973,7 @@ async function analyzeSong(x,onProg){
 
   /* ---- 4. Phổ từng khung, lọc bỏ tiếng gõ (giữ phần ngân), rồi chroma 36 ô từ các đỉnh phổ ---- */
   const n2=4096,h2=2048,nC=Math.floor((x.length-n2)/h2)+1,fft2=makeFFT(n2),w2=hann(n2),r2=new Float32Array(n2),i2=new Float32Array(n2);
-  const kLo=Math.ceil(60*n2/sr),kHi=Math.floor(2100*n2/sr),NB=kHi-kLo+3,SP=new Float32Array(nC*NB);
+  const kLo=Math.ceil((advanced?42:60)*n2/sr),kHi=Math.floor(2100*n2/sr),NB=kHi-kLo+3,SP=new Float32Array(nC*NB);
   for(let f=0;f<nC;f++){
     const o=f*h2;for(let i=0;i<n2;i++){r2[i]=x[o+i]*w2[i];i2[i]=0;}
     fft2(r2,i2);
@@ -874,7 +985,9 @@ async function analyzeSong(x,onProg){
   const mt=new Float32Array(17);
   const med=n=>{for(let i=1;i<n;i++){const v=mt[i];let j=i-1;while(j>=0&&mt[j]>v){mt[j+1]=mt[j];j--;}mt[j+1]=v;}return mt[n>>1];};
   const ch=new Float32Array(nC*36),bs=new Float32Array(nC*36),row=new Float32Array(NB);
+  const fund=advanced?new Float32Array(nC*36):null,lowBass=advanced?new Float32Array(nC*36):null;
   for(let f=0;f<nC;f++){
+    const peaks=advanced?[]:null;
     for(let b=0;b<NB;b++){
       let n=0;for(let d=-4;d<=4;d++){const g=f+d;if(g>=0&&g<nC)mt[n++]=SP[g*NB+b];}
       const H=med(n);
@@ -886,8 +999,10 @@ async function analyzeSong(x,onProg){
       const v=row[b];if(v<=row[b-1]||v<row[b+1])continue;
       const a=row[b-1],q=row[b+1],d=a-2*v+q,fr=(kLo-1+b+(d<0?0.5*(a-q)/d:0))*sr/n2;
       const idx=((Math.round(36*Math.log2(fr/261.6256))%36)+36)%36,w=Math.sqrt(v);
-      ch[f*36+idx]+=w;if(fr<260)bs[f*36+idx]+=w;
+      if(!advanced||fr>=60){ch[f*36+idx]+=w;if(fr<260)bs[f*36+idx]+=w;}
+      if(peaks)peaks.push({hz:fr,amp:v,pc:idx});
     }
+    if(peaks)chordSpectralFrame(peaks,fund,lowBass,f*36);
     if((f&15)===0&&performance.now()-last>40){await tick(0.7+0.25*f/nC);last=performance.now();}
   }
   /* lên dây lệch chuẩn: chọn độ lệch (-33, 0, +33 cent) có nhiều năng lượng nhất */
@@ -1029,17 +1144,19 @@ async function analyzeSong(x,onProg){
     if(triplet)styles.push({name:bpm<95?'Slow Rock':'Shuffle',score:1.2});
     styles.sort((a,b)=>b.score-a.score);
   }
-  await tick(1);
   /* mã trả về: gốc 0-23, 24 = không có, +100 = hợp âm 7, 200+nốt = sus4, 300+nốt = sus2 */
   const outC=new Int16Array(nB);
   for(let b=0;b<nB;b++){const s=chord[b];outC[b]=s>=100||s<=24?s:s<37?200+s-25:300+s-37;}
   chord=outC;
-  return {bpm,beats,chord,meter,down,key,styles:styles.slice(0,3),tune:tune*33,triplet};
+  const events=advanced?await advancedChordEvents({
+    fund,bass:lowBass,frames:nC,fold,frameTime:n2/(2*sr),hop:h2/sr,duration:x.length/sr,beats,key,legacy:chord,tick
+  }):undefined;
+  await tick(1);
+  return {bpm,beats,chord,meter,down,key,styles:styles.slice(0,3),tune:tune*33,triplet,events};
 }
 
 /* tên hợp âm / tone, có dịch tone; dùng dấu giáng với các tone quen viết giáng */
 function keyUsesFlat(tonic,minor){return (minor?MIN_FLAT:MAJ_FLAT).includes(tonic);}
-function chordName(c,shift,flat){if(c===24)return '–';const b=c%100,r=((b%12)+shift+120)%12;return (flat?FLAT:NAMES)[r]+(b>=12?'m':'')+['','7','sus4','sus2'][Math.floor(c/100)];}
 
 /* Bài mẫu tổng hợp để thử: bass + tiếng gõ theo mẫu của điệu, hợp âm ngân */
 function makeSong(style,bpm,prog,bars){
@@ -1181,22 +1298,21 @@ async function analyze(tr,label,saved){
   }catch(e){busy(false);setStatus('Phân tích bị lỗi giữa chừng. Hãy thử lại với file ngắn hơn.',true);}
 }
 /* mở một file vocal (hoặc âm mẫu khi file = null); saved = trạng thái của bài đã lưu */
-async function openVocal(file,label,saved){
+async function openVocal(file,label,saved,decoded){
   resetVocal();
   let tr;
-  if(file){
+  if(file||decoded){
     busy(true);setStatus('Đang đọc file: '+label);
     let buf;
     try{
-      const ab=await file.arrayBuffer();
       const OC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
-      buf=await new OC(1,2,R).decodeAudioData(ab);
+      buf=decoded||await new OC(1,2,R).decodeAudioData(await file.arrayBuffer());
     }catch(err){busy(false);setStatus('Không đọc được file này. Hãy thử một file mp3, wav hoặc m4a khác.',true);return;}
     const n=buf.length,ch=buf.numberOfChannels;
     tr=makeTrack(n,x=>{for(let c=0;c<ch;c++){const d=buf.getChannelData(c);for(let i=0;i<n;i++)x[i]+=d[i]/ch;}});
     S.name=label.replace(/\.[^.]+$/,'');
   }else{const x=makeSample();tr=makeTrack(x.length,h=>h.set(x));S.name='am-mau';}
-  S.file=file||null;S.label=label;S.saved=!!saved;
+  S.file=file||null;S.fromStem=!!decoded;S.label=label;S.saved=!!saved;
   await analyze(tr,label,saved);
 }
 $('pick').onclick=async()=>{if(await beforeNew('vocal'))$('file').click();};
@@ -1383,20 +1499,29 @@ for(const bt of $('viewSel').children)bt.onclick=()=>{
 /* Đang chạy trong app Android (có cầu nối Android) hay trong trang web */
 const IS_APP=!!window.Android;
 /* Lưu một file ra máy: trong app thì ghi vào thư mục Download, trong trang claude.ai thì qua hộp thoại lưu */
-async function saveOut(name,data,mime){
+function encodeAudioBytes(bytes){
+  let text='';
+  for(let i=0;i<bytes.length;i+=0x8000)text+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));
+  return btoa(text);
+}
+let androidSaveQueue=Promise.resolve();
+async function saveOnAndroid(name,bytes,mime,preserveName){
+  if(preserveName&&Android.saveBeginStem)Android.saveBeginStem(name);else Android.saveBegin(name);
+  const CH=300000;let k=0;
+  for(let p=0;p<bytes.length;p+=CH){
+    Android.saveChunk(encodeAudioBytes(bytes.subarray(p,p+CH)));
+    if(++k%8===0)await sleep0();
+  }
+  const r=String(Android.saveEnd(mime));
+  if(r.indexOf('OK:')===0)return 'Đã lưu vào '+r.slice(3);
+  throw {code:'app',message:r.replace(/^ERR:/,'')};
+}
+async function saveOut(name,data,mime,preserveName=false){
   const bytes=typeof data==='string'?new TextEncoder().encode(data):data;
   if(IS_APP){
-    Android.saveBegin(name);
-    const CH=300000;let k=0;
-    for(let p=0;p<bytes.length;p+=CH){
-      const sub=bytes.subarray(p,Math.min(bytes.length,p+CH));let s='';
-      for(let q=0;q<sub.length;q+=0x8000)s+=String.fromCharCode.apply(null,sub.subarray(q,q+0x8000));
-      Android.saveChunk(btoa(s));
-      if(++k%8===0)await sleep0();
-    }
-    const r=String(Android.saveEnd(mime));
-    if(r.indexOf('OK:')===0)return 'Đã lưu vào '+r.slice(3);
-    throw {code:'app',message:r.replace(/^ERR:/,'')};
+    const saved=androidSaveQueue.then(()=>saveOnAndroid(name,bytes,mime,preserveName));
+    androidSaveQueue=saved.catch(()=>{});
+    return saved;
   }
   const dl=window.claude&&claude.use?await claude.use('downloads'):null;
   if(dl){
@@ -1407,6 +1532,7 @@ async function saveOut(name,data,mime){
   }
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([bytes],{type:mime}));
   a.download=name;document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),60000);
   return 'Đã tạo file '+name+'.';
 }
 const saveErr=e=>{const c=e&&e.code;return c==='declined'?'Bạn đã hủy lưu file.':c==='rate_limited'?'Đang có một yêu cầu lưu khác. Hãy đợi vài giây rồi bấm lại.':c==='too_large'?'File quá lớn để lưu ở đây.':c==='app'?'Không lưu được file: '+e.message:'Không lưu được file ở trình xem này.';};
@@ -1630,8 +1756,8 @@ window.addEventListener('resize',layoutRoll);
 
 /* ================= Màn hình chính và màn hình dò hợp âm ================= */
 function show(id){
-  stop();cStop();tStop();
-  for(const s of ['home','vocal','chords','tone'])$(s).hidden=s!==id;
+  stop();cStop();tStop();sepStop();
+  for(const s of ['home','vocal','chords','tone','separator'])$(s).hidden=s!==id;
   window.scrollTo(0,0);
   if(id==='vocal')layoutRoll();
 }
@@ -1639,19 +1765,20 @@ function show(id){
 /* Vào một công cụ từ trang đầu là bắt đầu lại từ đầu: xóa hết dữ liệu của file cũ rồi mới mở hộp chọn file */
 function resetVocal(){
   stop();pausedAt=0;edits.clear();sel=null;
-  S.orig=null;S.fixed=null;S.midi=null;S.notes=[];S.base=[];S.shift=null;S.listen='orig';S.dur=0;S.file=null;S.saved=false;
+  S.orig=null;S.fixed=null;S.midi=null;S.notes=[];S.base=[];S.shift=null;S.listen='orig';S.dur=0;S.file=null;S.saved=false;S.fromStem=false;
   setEdit(false);$('result').hidden=true;$('prog').hidden=true;setStatus('');setFix('');
 }
 function resetChords(){
   cStop();cPaused=0;
-  CS.res=null;CS.buf=null;CS.file=null;CS.mono=null;CS.saved=false;CS.bars=[];CS.cells=[];CS.cur=-1;CS.shift=0;CS.style=null;
+  CS.res=null;CS.buf=null;CS.file=null;CS.mono=null;CS.saved=false;CS.comparison=null;CS.source='track';CS.simple=false;CS.fromStem=false;CS.lyricFile=null;CS.lyricBuffer=null;CS.bars=[];CS.cells=[];CS.cur=-1;CS.shift=0;CS.style=null;
   LY.lines=[];LY.on=false;LY.sel=null;LY.src='';
   $('cResult').hidden=true;$('lyBox').hidden=true;$('cProg').hidden=true;$('lyIn').value='';
+  cCloseEditor();$('cComparison').open=false;$('cChartText').hidden=true;$('cChartStatus').textContent='';
   cStatus('');lyStat('');whStat('');
 }
 function resetTone(){
   tStop();tPaused=0;
-  TS.buf=null;TS.out=null;TS.outSemi=0;TS.semi=0;TS.listen='orig';TS.key=null;TS.vol=1;TS.peak=1;TS.file=null;TS.saved=false;
+  TS.buf=null;TS.out=null;TS.outSemi=0;TS.semi=0;TS.listen='orig';TS.key=null;TS.vol=1;TS.peak=1;TS.file=null;TS.saved=false;TS.fromStem=false;
   $('tResult').hidden=true;$('tProg').hidden=true;tStatus('');
 }
 $('goVocal').onclick=()=>{resetVocal();show('vocal');$('file').click();};
@@ -1682,13 +1809,16 @@ const DB={
 };
 const TOOLS={
   vocal:{title:'Dò nốt giọng hát',has:()=>!!S.orig,busy:()=>$('pick').disabled,wasSaved:()=>S.saved,reset:()=>resetVocal(),
-    rec:()=>({name:S.label,file:S.file,state:{midi:S.orig.midi,minDur:S.minDur,mode:S.mode,edits:[...edits]}}),
+    rec:()=>({name:S.label,file:S.file||(S.fromStem?stemFile(S.orig.buf,S.name):null),state:{midi:S.orig.midi,minDur:S.minDur,mode:S.mode,edits:[...edits]}}),
     open:r=>openVocal(r.file,r.name,r.state)},
   chords:{title:'Dò hợp âm bài hát',has:()=>!!CS.res,busy:()=>$('cPick').disabled,wasSaved:()=>CS.saved,reset:()=>resetChords(),
-    rec:()=>({name:CS.label,file:CS.file,state:{res:CS.res,shift:CS.shift,style:CS.style,lines:LY.on?LY.lines:null,src:LY.src||'',lyIn:$('lyIn').value}}),
+    rec:()=>({name:CS.label,file:CS.file||(CS.fromStem?stemFile(CS.buf,CS.label.replace(/\.[^.]+$/,'')):null),state:{
+      res:CS.res,shift:CS.shift,style:CS.style,lines:LY.on?LY.lines:null,src:LY.src||'',lyIn:$('lyIn').value,
+      simple:CS.simple,source:CS.source,comparison:CS.comparison,lyricFile:CS.lyricFile
+    }}),
     open:r=>openChords(r.file,r.name,r.state)},
   tone:{title:'Nâng, hạ tone beat',has:()=>!!TS.buf,busy:()=>tBusyOn,wasSaved:()=>TS.saved,reset:()=>resetTone(),
-    rec:()=>({name:TS.label,file:TS.file,state:{key:TS.key,semi:TS.semi,vol:TS.vol}}),
+    rec:()=>({name:TS.label,file:TS.file||(TS.fromStem?stemFile(TS.buf,TS.name):null),state:{key:TS.key,semi:TS.semi,vol:TS.vol}}),
     open:r=>openTone(r.file,r.name,r.state)}
 };
 const curTool=()=>['vocal','chords','tone'].find(id=>!$(id).hidden);
@@ -1700,6 +1830,7 @@ async function trySave(id){
 }
 /* rời một công cụ: nếu đang có bài thì hỏi lưu hay xóa */
 async function leave(){
+  if(!$('separator').hidden){sepLeave();return;}
   const id=curTool();if(!id)return;
   const T=TOOLS[id];
   if(T.busy())return;
@@ -1755,19 +1886,13 @@ async function cAnalyze(x,buf,label,file,saved){
   cStop();cBusy(true);$('cResult').hidden=true;
   cStatus((saved?'Đang mở lại: ':'Đang dò hợp âm: ')+label);
   let r=saved?saved.res:null;
-  if(!r)try{r=await analyzeSong(x,p=>{$('cProg').value=p;});}catch(e){}
+  if(!r)try{r=await analyzeSong(x,p=>{$('cProg').value=p;},true);}catch(e){}
   cBusy(false);
   if(!r){cStatus('Không dò được bài này. Bài cần dài ít nhất khoảng 10 giây và có nhạc đệm rõ.',true);return;}
   CS.res=r;CS.buf=buf;CS.shift=saved?saved.shift:0;CS.style=saved?saved.style:null;cPaused=0;
+  const project=saved||{};
+  CS.simple=!!project.simple;CS.source=project.source||'track';CS.comparison=project.comparison||null;CS.lyricFile=project.lyricFile||null;
   LY.lines=[];LY.on=false;$('lyBox').hidden=true;whStat('');lyStat('');
-  const sel=$('cStyleSel');sel.textContent='';
-  for(const nm of [...new Set(r.styles.map(s=>s.name).concat(ALL_STYLES))]){const o=document.createElement('option');o.value=o.textContent=nm;sel.append(o);}
-  /* gom các phách thành ô nhịp, bắt đầu từ phách mạnh đầu tiên; phần lấy đà (nếu có) là một ô riêng */
-  const bars=[],nB=r.beats.length;
-  const add=(a,b)=>{const cs=[];for(let i=a;i<b;i++)if(!cs.length||cs[cs.length-1]!==r.chord[i])cs.push(r.chord[i]);bars.push({t:r.beats[a],chords:cs});};
-  if(r.down>0)add(0,r.down);
-  for(let b=r.down;b<nB;b+=r.meter)add(b,Math.min(nB,b+r.meter));
-  CS.bars=bars;
   /* bài đã lưu: đặt lại lời và hợp âm đã ghép */
   if(saved&&saved.lines){
     LY.lines=saved.lines;LY.on=true;LY.ptr=-1;LY.sel=null;LY.src=saved.src||'';
@@ -1792,9 +1917,32 @@ async function openChords(file,label,saved){
     const OC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
     buf=await new OC(2,2,R).decodeAudioData(ab);
   }catch(err){cBusy(false);cStatus('Không đọc được file này. Hãy thử một file mp3, wav hoặc m4a khác.',true);return;}
+  return cAnalyze(chordMono(buf),buf,label,file,saved);
+}
+function chordMono(buf){
   const n=buf.length,ch=buf.numberOfChannels,m=new Float32Array(n);
   for(let c=0;c<ch;c++){const d=buf.getChannelData(c);for(let i=0;i<n;i++)m[i]+=d[i]/ch;}
-  return cAnalyze(downsample2(m),buf,label,file,saved);
+  return buf.sampleRate===R?downsample2(m):m;
+}
+async function openStemChords(original,instrumental,file,name){
+  resetChords();show('chords');
+  cBusy(true);cStatus('Đang dò hợp âm nhạc nền…');
+  const x=chordMono(instrumental);
+  let result,reference;
+  try{
+    result=await analyzeSong(x,p=>{$('cProg').value=p/2;},true);
+    cStatus('Đang dò hợp âm bài gốc để so sánh…');
+    reference=await analyzeSong(chordMono(original),p=>{$('cProg').value=0.5+p/2;},true);
+  }catch(e){}
+  if(!result&&!reference){
+    cBusy(false);cStatus('Không dò được hợp âm. Hãy thử bài dài khoảng 10 giây trở lên có nhạc đệm rõ.',true);return;
+  }
+  const source=result?'instrumental':'original';
+  const comparison=result&&reference?{other:reference,otherStyle:null}:null;
+  await cAnalyze(x,instrumental,name+'.wav',null,{res:result||reference,shift:0,style:null,comparison,source,lyricFile:file});
+  CS.saved=false;CS.fromStem=true;CS.lyricBuffer=original;
+  cStatus(comparison?'Đang dùng hợp âm từ nhạc nền. Bạn có thể chọn kết quả từ bài gốc trong bảng so sánh.':
+    'Chỉ dò được hợp âm từ '+(result?'nhạc nền.':'bài gốc. File đang phát là nhạc nền.'));
 }
 $('cPick').onclick=async()=>{if(await beforeNew('chords'))$('cFile').click();};
 $('cFile').onchange=e=>{const f=e.target.files[0];if(!f)return;e.target.value='';openChords(f,f.name);};
@@ -1802,8 +1950,13 @@ $('cDemo').onclick=async()=>{if(await beforeNew('chords'))openChords(null,'bài 
 
 function cRender(){
   const r=CS.res,sh=CS.shift,mi=r.key.minor;
+  CS.bars=cBars(r);
+  const style=$('cStyleSel');
+  style.textContent='';
+  style.append(...[...new Set(r.styles.map(s=>s.name).concat(ALL_STYLES))].map(n=>new Option(n,n)));
+  cTimeline();
   const nameOf=s=>{const t=(r.key.tonic+s+120)%12;return (keyUsesFlat(t,mi)?FLAT:NAMES)[t]+(mi?'m':'');};
-  const t=(r.key.tonic+sh+120)%12,flat=keyUsesFlat(t,mi),kn=nameOf(sh);
+  const t=(r.key.tonic+sh+120)%12,flat=cFlat(),kn=nameOf(sh);
   $('cKey').textContent=kn;
   $('cKeyLong').textContent=(flat?FLAT:NAMES)[t]+(mi?' thứ':' trưởng')+(sh?' (tone gốc '+nameOf(0)+')':'');
   $('cBpm').textContent=Math.round(r.bpm);
@@ -1820,7 +1973,7 @@ function cRender(){
   for(const b of CS.bars)for(const c of b.chords)if(c!==24)cnt.set(c,(cnt.get(c)||0)+1);
   const chips=$('cChips');chips.textContent='';
   for(const [c,k] of [...cnt.entries()].sort((a,b)=>b[1]-a[1])){
-    const el=document.createElement('span');el.className='chip';el.textContent=chordName(c,sh,flat);
+    const el=document.createElement('span');el.className='chip';el.textContent=cDisplay(c);
     const s=document.createElement('small');s.textContent=k+' ô';el.append(s);chips.append(el);
   }
   const chart=$('cChart');chart.textContent='';CS.cells=[];CS.cur=-1;
@@ -1833,12 +1986,15 @@ function cRender(){
     prevLast=b.chords[b.chords.length-1];
     const el=document.createElement('button');el.className='bar'+(same?' same':'');
     const c=document.createElement('span');c.className='ch';
-    for(const id of show){const s=document.createElement('span');s.textContent=chordName(id,sh,flat);c.append(s);}
+    for(const id of show){const s=document.createElement('span');s.textContent=cDisplay(id);c.append(s);}
     const tm=document.createElement('span');tm.className='tm';tm.textContent=fmtT(b.t);
     el.append(c,tm);el.onclick=()=>cPlayAt(b.t);
     chart.append(el);CS.cells.push(el);
   });
-  $('cNote').textContent='Chạm vào một ô để nghe từ chỗ đó. App nhận hợp âm trưởng, thứ, hợp âm 7 (như E7, A7) và sus (như Esus4, Dsus2). Các loại khác như m7, maj7, dim sẽ hiện thành hợp âm trưởng hoặc thứ gần nhất.'+(r.tune?' Bài này lên dây lệch khoảng '+(r.tune>0?'+':'−')+'33 cent so với chuẩn, app đã tự bù.':'');
+  $('cNote').textContent='Chạm vào một ô nhịp để nghe. Chạm vào hợp âm trên dòng thời gian để sửa.'+
+    (r.tune?' Bài này lên dây lệch khoảng '+(r.tune>0?'+':'−')+'33 cent so với chuẩn, app đã tự bù.':'');
+  if(!$('cChartText').hidden)$('cChartText').value=chordChartText();
+  if(LY.on&&!$('lyText').hidden)$('lyText').value=lyText();
   $('cResult').hidden=false;
   cUpd();lyRender();
 }
@@ -1899,9 +2055,7 @@ if(document.fonts&&document.fonts.ready)document.fonts.ready.then(draw);
 /* mỗi dòng lời: words, t = lúc câu bắt đầu hát (do người dùng đánh dấu), pl = [{w: đứng trước chữ thứ mấy, c: hợp âm}] */
 const LY={lines:[],ptr:-1,sel:null,on:false};
 function lyEvents(){
-  const r=CS.res,ev=[];let prev=-1;
-  for(let b=0;b<r.beats.length;b++){const c=r.chord[b];if(c===24)continue;if(c!==prev)ev.push({t:r.beats[b],c});prev=c;}
-  return ev;
+  return cEvents().map(e=>({t:e.t,c:e.c,id:CS.source+'|'+e.id}));
 }
 const lyNext=(i,d)=>{for(let j=i+d;j>=0&&j<LY.lines.length;j+=d)if(!LY.lines[j].blank)return j;return -1;};
 /* thời gian trung bình cho một chữ, suy từ các câu đã đánh dấu; chưa có thì coi mỗi chữ một phách */
@@ -1925,21 +2079,30 @@ function lyAuto(i){
     /* có mốc thời gian từng chữ (lời do máy nghe): hợp âm đứng trước chữ đầu tiên được hát sau lúc đổi hợp âm */
     const lim=next==null?L.wt[n-1]+8:next-0.3;
     for(const e of ev){
-      if(e.t<L.t-0.3||e.t>=lim)continue;
+      if(e.c===NO_CHORD||e.t<L.t-0.3||e.t>=lim)continue;
       let w=n;for(let k=0;k<n;k++)if(L.wt[k]>=e.t-0.12){w=k;break;}
-      L.pl.push({w,c:e.c});
+      L.pl.push({w,c:e.c,id:e.id});
     }
   }else for(const e of ev){
-    if(e.t<L.t-0.25||e.t>=end)continue;
-    L.pl.push({w:e.t<sung?Math.max(0,Math.min(n-1,Math.round((e.t-L.t)/(sung-L.t)*n))):n,c:e.c});
+    if(e.c===NO_CHORD||e.t<L.t-0.25||e.t>=end)continue;
+    L.pl.push({w:e.t<sung?Math.max(0,Math.min(n-1,Math.round((e.t-L.t)/(sung-L.t)*n))):n,c:e.c,id:e.id});
   }
   /* câu mở đầu một đoạn mà chưa có hợp âm ở chữ đầu: ghi hợp âm đang vang lúc đó */
   const p=lyNext(i,-1),first=p<0||p!==i-1;
-  if(first&&!(L.pl[0]&&L.pl[0].w===0)){let c=-1;for(const e of ev)if(e.t<=L.t+0.25)c=e.c;if(c>=0&&!(L.pl[0]&&L.pl[0].c===c))L.pl.unshift({w:0,c});}
+  if(first&&!(L.pl[0]&&L.pl[0].w===0)){
+    let j=ev.length-1;while(j>=0&&ev[j].t>L.t+0.25)j--;
+    const e=ev[j];
+    if(e&&e.c!==NO_CHORD&&(!L.pl[0]||L.pl[0].c!==e.c))L.pl.unshift({w:0,c:e.c,id:e.id});
+  }
+  if(L.overrides){
+    L.pl=L.pl.filter(p=>L.overrides[p.id]!==null);
+    for(const p of L.pl)if(L.overrides[p.id]!=null)p.w=Math.min(n,L.overrides[p.id]);
+  }
+  L.pl.push(...(L.extras||[]));
 }
 function lyRender(){
   if(!LY.on||!CS.res)return;
-  const r=CS.res,flat=keyUsesFlat((r.key.tonic+CS.shift+120)%12,r.key.minor),box=$('lySheet');
+  const box=$('lySheet');
   box.textContent='';LY.rows=[];LY.now=-1;
   LY.lines.forEach((L,i)=>{
     const row=document.createElement('div');
@@ -1951,7 +2114,7 @@ function lyRender(){
     const tx=document.createElement('span');tx.className='tx';
     const put=w=>{L.pl.forEach((q,k)=>{if(q.w!==w)return;
       const b=document.createElement('button');b.className='cd'+(LY.sel&&LY.sel.i===i&&LY.sel.k===k?' sel':'');
-      b.textContent='['+chordName(q.c,CS.shift,flat)+']';b.onclick=()=>{LY.sel={i,k};lyRender();};tx.append(b,' ');});};
+      b.textContent='['+cDisplay(q.c)+']';b.onclick=()=>{LY.sel={i,k};lyRender();};tx.append(b,' ');});};
     L.words.forEach((wd,w)=>{put(w);tx.append(wd+' ');});put(L.words.length);
     row.append(tb,tx);box.append(row);LY.rows[i]=row;
     if(i===LY.ptr)LY.ptrEl=row;
@@ -2053,7 +2216,18 @@ $('lyUndo').onclick=()=>{
 function lyEdit(fn){
   const s=LY.sel;if(!s)return;
   const L=LY.lines[s.i],q=L.pl[s.k];if(!q)return;
-  if(fn(q,L)===false){L.pl.splice(s.k,1);LY.sel=null;}
+  cRememberLyricEdits();
+  if(!q.id){
+    const match=lyEvents().filter(e=>e.c===q.c).sort((a,b)=>Math.abs(a.t-L.t)-Math.abs(b.t-L.t))[0];
+    if(match)q.id=match.id;
+  }
+  const remove=fn(q,L)===false;
+  if(q.id)L.overrides[q.id]=remove?null:q.w;
+  if(remove){
+    L.pl.splice(s.k,1);LY.sel=null;
+    if(L.extras)L.extras=L.extras.filter(p=>p!==q);
+  }
+  if(!$('lyText').hidden)$('lyText').value=lyText();
   lyRender();
 }
 $('lyL').onclick=()=>lyEdit(q=>{q.w=Math.max(0,q.w-1);});
@@ -2065,7 +2239,7 @@ function lyText(){
   for(const L of LY.lines){
     if(L.blank){out.push('');continue;}
     const parts=[];
-    const put=w=>{for(const q of L.pl)if(q.w===w)parts.push('['+chordName(q.c,CS.shift,flat)+']');};
+    const put=w=>{for(const q of L.pl)if(q.w===w)parts.push('['+cDisplay(q.c)+']');};
     L.words.forEach((wd,w)=>{put(w);parts.push(wd);});put(L.words.length);
     out.push(parts.join(' '));
   }
@@ -2140,7 +2314,13 @@ $('lyWh').onclick=async()=>{
   $('lyWh').disabled=true;$('whProg').hidden=false;$('whProg').value=0;whStat('Đang nén bài hát để gửi cho nhanh…');
   await sleep0();
   try{
-    const x=CS.mono,n=Math.floor(x.length*16000/SR),y=new Float32Array(n),st=SR/16000;
+    let x=CS.mono;
+    if(CS.lyricFile){
+      const OC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+      const b=CS.lyricBuffer||await new OC(2,2,R).decodeAudioData(await CS.lyricFile.arrayBuffer());
+      x=chordMono(b);
+    }
+    const original=CS.lyricFile||CS.file,n=Math.floor(x.length*16000/SR),y=new Float32Array(n),st=SR/16000;
     for(let i=0;i<n;i++){
       const q=i*st,k=Math.floor(q),f=q-k,a=k>0?x[k-1]:x[k],b=x[k],c=k+1<x.length?x[k+1]:b,d=k+2<x.length?x[k+2]:c;
       /* làm mượt nhẹ rồi nội suy tuyến tính */
@@ -2157,9 +2337,9 @@ $('lyWh').onclick=async()=>{
     if(!blob){
       /* không có bộ nén MP3: gửi file gốc hoặc bản WAV 16 kHz, cái nào nhỏ hơn */
       const wavSize=n*2+44;
-      if(CS.file&&CS.file.size<=24e6&&CS.file.size<=wavSize){blob=CS.file;name=CS.file.name||'song.mp3';}
+      if(original&&original.size<=24e6&&original.size<=wavSize){blob=original;name=original.name||'song.mp3';}
       else if(wavSize<=24e6)blob=new Blob([wavBytes(y,16000)],{type:'audio/wav'});
-      else if(CS.file&&CS.file.size<=24e6){blob=CS.file;name=CS.file.name||'song.mp3';}
+      else if(original&&original.size<=24e6){blob=original;name=original.name||'song.mp3';}
     }
   }catch(e){}
   $('lyWh').disabled=false;$('whProg').hidden=true;
@@ -2235,14 +2415,33 @@ $('lyUpd').onclick=()=>{
   lyStat(added?'Đã cập nhật lời. Có '+added+' dòng thêm mới, app tạm đặt chúng vào giữa câu trước và câu sau: chạm vào mốc thời gian đầu dòng đó, bấm Phát rồi bấm "Câu này bắt đầu hát" để đặt lại cho đúng.':'Đã cập nhật lời.');
 };
 
+if(typeof APP_VERSION!=='undefined'){
+  $('hAppName').textContent=APP_VERSION.name;
+  $('hAppVersion').textContent=APP_VERSION.versionName;
+  $('hVersionCode').textContent=APP_VERSION.versionCode;
+  $('hVersion').textContent=APP_VERSION.name+' · Phiên bản '+APP_VERSION.versionName;
+  if(APP_VERSION.buildDate){
+    const date=new Date(APP_VERSION.buildDate);
+    $('hBuildDate').textContent=date.toLocaleDateString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'});
+    $('hBuildRow').hidden=false;
+  }
+  $('hGear').hidden=false;
+  $('hGear').onclick=()=>{
+    const opened=$('hSet').hidden;
+    $('hSet').hidden=!opened;
+    $('hGear').setAttribute('aria-expanded',String(opened));
+    $('hMsg').textContent='';
+  };
+}
+
 /* ---- khác biệt giữa app và trang web ---- */
 if(IS_APP){
+  $('hLyricsSettings').hidden=false;
   $('whBox').hidden=false;$('lyAI').hidden=true;$('aiHint').hidden=true;
   $('lyLead').textContent='Dán lời bài hát vào ô dưới, mỗi câu hát một dòng, để trống một dòng giữa các đoạn. Rồi bấm "Tự đánh dấu từng câu", bấm Phát và đánh dấu lúc mỗi câu bắt đầu hát.';
   $('whKey').value=store.get('groqKey');$('whLang').value=store.get('whLang')||'vi';
   /* cài đặt ở trang đầu: cùng một khóa và ngôn ngữ với phần cài đặt trong màn hình dò hợp âm */
-  $('hGear').hidden=false;$('hKey').value=store.get('groqKey');$('hLang').value=store.get('whLang')||'vi';
-  $('hGear').onclick=()=>{const o=$('hSet').hidden;$('hSet').hidden=!o;$('hGear').setAttribute('aria-expanded',String(o));$('hMsg').textContent='';};
+  $('hKey').value=store.get('groqKey');$('hLang').value=store.get('whLang')||'vi';
   $('hSave').onclick=()=>{
     store.set('groqKey',$('hKey').value.trim());store.set('whLang',$('hLang').value);
     $('whKey').value=$('hKey').value.trim();$('whLang').value=$('hLang').value;
@@ -2253,6 +2452,7 @@ if(IS_APP){
 /* nút Back của Android: đang ở màn hình con thì về trang đầu, đang ở trang đầu thì thoát app */
 window.appBack=()=>{
   if(askDone){askDone(null);return true;}
+  if(!$('cEditor').hidden){cCloseEditor();return true;}
   if($('home').hidden){leave();return true;}
   return false;
 };
@@ -2348,9 +2548,9 @@ async function tLoad(buf,name,label,saved){
   $('tResult').hidden=false;tBusy(false);
   tStatus((saved?'Đã mở lại: ':'Đã mở: ')+label);
 }
-async function openTone(file,label,saved){
+async function openTone(file,label,saved,decoded){
   resetTone();
-  if(!file){
+  if(!file&&!decoded){
     const x=makeSong('bolero',78,[21,14,7,0,5,14,104,21],8);
     const buf=new AudioBuffer({length:x.length,sampleRate:SR,numberOfChannels:1});
     buf.getChannelData(0).set(x);
@@ -2359,11 +2559,10 @@ async function openTone(file,label,saved){
   tBusy(true);tStatus('Đang đọc file: '+label);
   let buf;
   try{
-    const ab=await file.arrayBuffer();
     const OC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
-    buf=await new OC(2,2,R).decodeAudioData(ab);
+    buf=decoded||await new OC(2,2,R).decodeAudioData(await file.arrayBuffer());
   }catch(err){tBusy(false);tStatus('Không đọc được file này. Hãy thử một file mp3, wav hoặc m4a khác.',true);return;}
-  TS.file=file;return tLoad(buf,label.replace(/\.[^.]+$/,''),label,saved);
+  TS.file=file;TS.fromStem=!!decoded;return tLoad(buf,label.replace(/\.[^.]+$/,''),label,saved);
 }
 $('tPick').onclick=async()=>{if(await beforeNew('tone'))$('tFile').click();};
 $('tFile').onchange=e=>{const f=e.target.files[0];if(!f)return;e.target.value='';openTone(f,f.name);};
@@ -2419,5 +2618,7 @@ $('tWav').onclick=()=>tExport('wav');
 $('tMp3').onclick=()=>tExport('mp3');
 if(IS_APP)$('tHint').textContent+=' File được lưu vào thư mục Download/DoNotHopAm trong máy.';
 </script>
+<script src="chord-editor.js"></script>
+<script src="separator.js"></script>
 </body>
 </html>
